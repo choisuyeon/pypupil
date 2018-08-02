@@ -1,3 +1,4 @@
-data/
-matlab/
+data/*
+matlab/*
+__pycache__/*
 *.mat

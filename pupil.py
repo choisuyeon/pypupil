@@ -18,26 +18,51 @@ from affine_transformer import Affine_Fit
 
 
 class Pupil:
-    """ API
+    """ API (instructions)
 
-        calibrate() :
-        record() :
-        disconnect() :
-        _save_file() :
-        _idx_lut() :
+        * Public :
+            calibrate(eye_to_clb) :
+                Select eyes to calibrate (monocular, binocular)
+                It starts with beep sound
+                Then gaze the position with predefined reorder ::
+
+                    Left top -> Right top -> Right bottom -> Left bottom -> Center (if needed)
+
+                You might hear "beep" sound for each stage.
+                After collecting data, pyPupil clusters the datum and finds the average position of each gaze.
+                Then it applies Affine transform with fixed point.
+                Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)
+
+            record() :
+
+
+            disconnect() :
+                Disconnect from the SUBSRIBE socket.
+
+
+        * Private:
+            _save_file(file_name, data) :
+                Save numpy 2d array to .mat file wtih designated file_name.
+
+            _idx_lut() :
+                Returns Lookup Table of idx of n_clusters
+                This is necessary because K-mean clustering does not guarantee
+                the order of centers which I intended.
+
+                This method get mode of labels in subarray then make lookuptable.
     """
 
     addr_localhost = '127.0.0.1'
     port_pupil_remote = '50020' # default value given by Pupil
-    screen_width = 1600
-    screen_height = 900
-    record_duration = 10 # second
+    screen_width = 4.0
+    screen_height = 2.0
+    record_duration = 15 # second
     frequency = 120 # Hz
 
     to_points = np.array([ [-screen_width/2, screen_height/2], [screen_width/2, screen_height/2], \
                            [screen_width/2, -screen_height/2], [-screen_width/2, -screen_height/2] ]) #, [0.0, 0.0] ])
 
-    num_cal_points = Pupil.to_points.shape[0] # currently 4
+    num_cal_points = to_points.shape[0] # currently 4
 
 
     def __init__(self):
@@ -55,53 +80,55 @@ class Pupil:
 
         # 1-3. Open a sub port to listen to gaze
         self.sub_socket = context.socket(zmq.SUB)
+
         # You can select topic between "gaze" and "pupil"
-        data_type = b'pupil.'
-        self.sub_socket.setsockopt(zmq.SUBSCRIBE, data_type)
+        self.set_data_type(b'pupil.')
 
-        if data_type == b'pupil.' :
-            self.idx_left_eye = -2
-        else :
-            self.idx_left_eye = -3
+        self.Affine_Transforms = [None, None]
 
-
-    def calibrate(self):
+    def calibrate(self, eye_to_clb):
         """
-            Calibration order
-            1st : Left top
-            2nd : Right top
-            3rd : Right bottom
-            4th : Left bottom
-            5th : Center (if needed)
+            Argument :
+                eye_to_clb : list of integer ( only right eye : [0]
+                                               only left eye : [1]
+                                               both eyes : [0, 1] )
+
+            Calibration order :
+                1st : Left top
+                2nd : Right top
+                3rd : Right bottom
+                4th : Left bottom
+                5th : Center (if needed)
         """
         # Beep sound
-        sys.stdout.write('\a')
-        sys.stdout.flush()
-
+        print('\a')
         self.sub_socket.connect(b"tcp://%s:%s" %(Pupil.addr_localhost.encode('utf-8'), self.sub_port))
         topic, msg = self.sub_socket.recv_multipart()
+
+        # get data
         pupil_position = loads(msg)
         time0 = pupil_position[b'timestamp']
         left_eye = int(str(topic)[self.idx_left_eye]) # 1 : left, 0 : right
 
         # Coordinate transformation
-        max_num_points = 3000
         duration_per_point = 5 # second
-        data = np.zeros([max_num_points * Pupil.num_cal_points, 3])
+        max_num_points = duration_per_point * Pupil.frequency * Pupil.num_cal_points * len(eye_to_clb)
+        data_calibration = np.zeros([max_num_points * Pupil.num_cal_points, 4])
 
         # initialization
         t = 0
         position = 0
         index = 0
         global_idx = 0
-        X = np.empty(shape = [0, 2]) # data jar
-        index_position_change = []
+        X = [np.empty(shape = [0, 2]), np.empty(shape = [0, 2])] # data for left and right eye
+        indices_eye_position_change = [[],[]]
 
         while t < duration_per_point * Pupil.num_cal_points :
             topic, msg = self.sub_socket.recv_multipart()
             pupil_position = loads(msg)
             x, y = pupil_position[b'norm_pos']
             t = pupil_position[b'timestamp'] - time0
+            left_eye = int(str(topic)[self.idx_left_eye])
 
             new_position = int( t / duration_per_point )
             if new_position > position :
@@ -111,12 +138,13 @@ class Pupil:
                 if position == Pupil.num_cal_points :
                     break
 
-                index_position_change.append(global_idx)
+                for eye in eye_to_clb:
+                    indices_eye_position_change[eye].append(len(X[eye]))
                 index = 0 # initialize index
 
-            data[global_idx, :] = [t, x, y] # for matlab
+            data_calibration[global_idx, :] = [t, x, y, left_eye] # for matlab
 
-            X = np.append(X, [[x, y]], axis = 0) # for later data processing
+            X[left_eye] = np.append(X[left_eye], [[x, y]], axis = 0) # for later data processing
 
             index = index + 1
             global_idx = global_idx + 1
@@ -124,39 +152,62 @@ class Pupil:
 
         # TODO : Data squeezing XX
 
-        # get points via k-mean clustering
-        kmeans = KMeans(n_clusters = Pupil.num_cal_points, random_state = 0).fit(X)
-        print("centers :", kmeans.cluster_centers_)
-        # TODO : plot matplot will be convenient
+        # TEMP You can delete here
+        #clusters = []
+        #luts = []
+        # TEMP END
+        from_points = [[], []]
 
-        # index(label) lookup table
-        lut = self._idx_lut(kmeans.labels_, index_position_change)
-        print("lookup table : ", lut)
+        # processing eye by eye
+        for eye in eye_to_clb:
+            # (1) get points via k-mean clustering
+            cluster = KMeans(n_clusters = Pupil.num_cal_points, random_state = 0).fit(X[eye])
+            # TODO : plot matplot will be convenient
 
-        # get centers from cluster and reorder
-        from_points = [ kmeans.cluster_centers_[i] for i in lut ]
-        print("clustered point : ", from_points)
+            # (2) index(label) lookup table
+            lut = self._idx_lut(cluster.labels_, indices_eye_position_change[eye])
+            print("lookup table : ", lut)
 
-        # affine fitting
-        self.Aff_trf = Affine_Fit(from_points, Pupil.to_points)
-        print("Affrin Transform is ")
-        print(self.Aff_trf.To_Str())
+            # (3) get centers from cluster and reorder
+            from_points[eye] = [ cluster.cluster_centers_[i] for i in lut ]
+            print("clustered point : ", from_points[eye])
+
+            # (4) affine fitting (calibration)
+            self.Affine_Transforms[eye] = Affine_Fit(from_points[eye], Pupil.to_points)
+            print("Affine Transform is ")
+            print(self.Affine_Transforms[eye].To_Str())
+
+            # TEMP You can delete here
+            #clusters.append(cluster)
+            #luts.append(lut)
+            print("centers of eye" + str(eye) + ": ", cluster.cluster_centers_)
+            # TEMP END
+
 
         # save data into .mat format
         current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
         file_name = 'eye_track_calibration_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
-        self._save_file(file_name, data)
+        self._save_file(file_name, data_calibration)
 
 
         # TEMP : save after transform data for visualization
-        data_refine = np.zeros([4000, 2])
-        for i in range(X.shape[0]) :
-            x, y = self.Aff_trf.Transform(X[i])
-            data_refine[i, :] = [x, y]
+        data_refine = np.zeros([max_num_points * Pupil.num_cal_points, 4])
+
+        for i in range(data_calibration.shape[0]):
+            eye = int(data_calibration[i][3])
+            if self.Affine_Transforms[eye] is None:
+                continue
+
+            raw_data = (data_calibration[i][1], data_calibration[i][2])
+            x, y = self.Affine_Transforms[eye].Transform(raw_data)
+            t = data_calibration[i][0]
+            data_refine[i, :] = [t, x, y, eye]
 
         file_name = 'eye_track_calibration_refined_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
         self._save_file(file_name, data_refine)
         # TEMP END
+
+        self.disconnect()
 
 
     def record(self):
@@ -165,7 +216,7 @@ class Pupil:
                With Affine transform matrix with precaculated
         """
         # check whether calibrated
-        if self.Aff_trf is None :
+        if any(self.Affine_Transforms) is False :
             print("You should calibrate before record.")
             return
 
@@ -185,33 +236,31 @@ class Pupil:
         index = 0
 
         # Start with Beep sound
-        sys.stdout.write('\a')
-        sys.stdout.flush()
+        print('\a')
 
         while t < Pupil.record_duration:
             topic, msg = self.sub_socket.recv_multipart()
             pupil_position = loads(msg)
             raw_point = pupil_position[b'norm_pos']
+            left_eye = int(str(topic)[self.idx_left_eye]) # 1 : left, 0 : right
 
             # get real coordinate with Affine Transform
-            x, y = self.Aff_trf.Transform(raw_point)
+            x, y = self.Affine_Transforms[left_eye].Transform(raw_point)
 
             # get time
             t = pupil_position[b'timestamp'] - time0
 
             ## TEST START
             ## this can be the cause of delay.
-            left_eye = int(str(topic)[self.idx_left_eye]) # 1 : left, 0 : right
             ## TEST END
 
             print(index, topic, t, x, y)
 
-            data[index, :] = [t, x, y, raw_point[0], raw_point[1], left_eye]
+            data[index, :] = [t, x, y, left_eye, raw_point[0], raw_point[1]]
             index = index + 1
 
         # Beep sound
-        sys.stdout.write('\a')
-        sys.stdout.flush()
+        print('\a')
 
         # PART 3. Convert and save MATLAB file
         current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
@@ -221,6 +270,15 @@ class Pupil:
 
     def disconnect(self):
         self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
+
+
+    def set_data_type(self, type):
+        self.sub_socket.setsockopt(zmq.SUBSCRIBE, type)
+
+        if type == b'pupil.' :
+            self.idx_left_eye = -2
+        else :
+            self.idx_left_eye = -3
 
 
     def _save_file(self, file_name, data):
