@@ -8,7 +8,7 @@
 
 
 ### Prerequisites
-scipy, sklearn, numpy, zmq, msgpack
+scipy, sklearn, numpy, zmq, msgpack, matlab, matplotlib
 You can install all of those libraries via pip
 ```
 pip install scipy
@@ -27,6 +27,9 @@ python pupil_main.py
 * [numpy](https://scikit-learn.org/) - NumPy is the fundamental package for scientific computing with Python
 * [ZeroMQ](https://zeromq.org/) - A high-performance asynchronous messaging library
 * [MessagePack](https://msgpack.org/) - MessagePack is an efficient binary serialization format
+* [python3-tk](#) -
+* [matplotlib](#) -
+* [MATLAB](#) -
 
 ## Authors
 

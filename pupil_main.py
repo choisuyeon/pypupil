@@ -2,7 +2,6 @@
 # DATE : August 1, 2018
 
 # Command line interface for pypupil
-
 import time
 import sys
 from pupil import Pupil
@@ -48,3 +47,6 @@ while True:
 
     elif command == "exit":
         sys.exit(1)
+
+    elif command == "p":
+        tracker._plot_graph()

@@ -1,4 +1,5 @@
 data/*
-matlab/*
+scripts/*
 __pycache__/*
 *.mat
+*.pyc

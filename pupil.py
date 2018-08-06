@@ -53,14 +53,15 @@ class Pupil:
     """
 
     addr_localhost = '127.0.0.1'
-    port_pupil_remote = '50020' # default value given by Pupil
+    port_pupil_remote = '9285' # default value given by Pupil : 50020
+                               # You should check Pupil remote tab if communication performs not well
     screen_width = 4.0
     screen_height = 2.0
     record_duration = 15 # second
     frequency = 120 # Hz
 
     to_points = np.array([ [-screen_width/2, screen_height/2], [screen_width/2, screen_height/2], \
-                           [screen_width/2, -screen_height/2], [-screen_width/2, -screen_height/2] ]) #, [0.0, 0.0] ])
+                           [screen_width/2, -screen_height/2], [-screen_width/2, -screen_height/2], [0.0, 0.0] ])
 
     num_cal_points = to_points.shape[0] # currently 4
 
@@ -82,7 +83,16 @@ class Pupil:
         self.sub_socket = context.socket(zmq.SUB)
 
         # You can select topic between "gaze" and "pupil"
-        self.set_data_type(b'pupil.')
+        #self.set_data_type(b'pupil.')
+        print("Automatically set to deal with pupil data. (not gaze)")
+        type = b'pupil.'
+
+        self.sub_socket.setsockopt(zmq.SUBSCRIBE, type)
+
+        if type == b'pupil.' :
+            self.idx_left_eye = -2
+        else :
+            self.idx_left_eye = -3
 
         self.Affine_Transforms = [None, None]
 
@@ -148,7 +158,7 @@ class Pupil:
 
             index = index + 1
             global_idx = global_idx + 1
-            print(t, x, y)
+            print(topic, t, x, y)
 
         # TODO : Data squeezing XX
 
@@ -166,6 +176,10 @@ class Pupil:
 
             # (2) index(label) lookup table
             lut = self._idx_lut(cluster.labels_, indices_eye_position_change[eye])
+            #if lut == None:
+                # Not clusted well
+            #    print("Terminated because not clusted well.. Try again")
+            #    return
             print("lookup table : ", lut)
 
             # (3) get centers from cluster and reorder
@@ -174,6 +188,10 @@ class Pupil:
 
             # (4) affine fitting (calibration)
             self.Affine_Transforms[eye] = Affine_Fit(from_points[eye], Pupil.to_points)
+            if self.Affine_Transforms[eye] == False:
+                print("Not clustered well, Try again")
+                return
+
             print("Affine Transform is ")
             print(self.Affine_Transforms[eye].To_Str())
 
@@ -186,9 +204,9 @@ class Pupil:
 
         # save data into .mat format
         current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
-        file_name = 'eye_track_calibration_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
+        file_name = 'eye_track_before_calib_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
         self._save_file(file_name, data_calibration)
-
+        self._save_file('eye_track_before_calib_data_latest.mat', data_calibration)
 
         # TEMP : save after transform data for visualization
         data_refine = np.zeros([max_num_points * Pupil.num_cal_points, 4])
@@ -203,11 +221,11 @@ class Pupil:
             t = data_calibration[i][0]
             data_refine[i, :] = [t, x, y, eye]
 
-        file_name = 'eye_track_calibration_refined_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
+        file_name = 'eye_track_after_calib_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
         self._save_file(file_name, data_refine)
+        self._save_file('eye_track_after_calib_data_latest.mat', data_refine)
         # TEMP END
-
-        self.disconnect()
+        self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
 
 
     def record(self):
@@ -250,11 +268,7 @@ class Pupil:
             # get time
             t = pupil_position[b'timestamp'] - time0
 
-            ## TEST START
-            ## this can be the cause of delay.
-            ## TEST END
-
-            print(index, topic, t, x, y)
+            print(index, left_eye, t, x, y)
 
             data[index, :] = [t, x, y, left_eye, raw_point[0], raw_point[1]]
             index = index + 1
@@ -264,22 +278,26 @@ class Pupil:
 
         # PART 3. Convert and save MATLAB file
         current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
-        file_name = 'eye_track_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
+        file_name = 'eye_track_gaze_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
         self._save_file(file_name, data)
-
+        self._save_file('eye_track_gaze_data_latest.mat', data)
+        self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
 
     def disconnect(self):
         self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
 
 
-    def set_data_type(self, type):
-        self.sub_socket.setsockopt(zmq.SUBSCRIBE, type)
+    def _plot_graph(self, data = None):
+        data = np.zeros(shape = [10, 2])
 
-        if type == b'pupil.' :
-            self.idx_left_eye = -2
-        else :
-            self.idx_left_eye = -3
-
+        for i in range(10):
+            x, y = (i, 2*i)
+            data[i, :] = [x, y]
+        # Change the line plot below to a scatter plot
+        print(data)
+        plt.scatter(data[:, 0], data[:, 1])
+        # Show plot
+        plt.show()
 
     def _save_file(self, file_name, data):
         """ save data in .mat format with file_name
@@ -305,12 +323,20 @@ class Pupil:
 
         spl = np.split(labels, index_change)
         LUT = np.zeros(num_points, dtype = int)
+        repetition_check = []
 
         # Find mode value
         for i in range(num_points):
             points = np.array([spl[i]]).T
             mode_index = stats.mode(points)[0][0]
-            print("mode_index : ", mode_index)
+
+            #if mode_index in repetition_check:
+                # repetition check
+            #    print("mode index : ", mode_index)
+            #    print(str(repetition_check))
+            #    return None
+            #else:
+            #    repetition_check.append(mode_index)
             LUT[i] = mode_index[0]
 
         return LUT
