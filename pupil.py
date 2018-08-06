@@ -18,7 +18,8 @@ from affine_transformer import Affine_Fit
 
 
 class Pupil:
-    """ API (instructions)
+    """ Instruction
+        API
 
         * Public :
             calibrate(eye_to_clb) :
@@ -34,10 +35,6 @@ class Pupil:
                 Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)
 
             record() :
-
-
-            disconnect() :
-                Disconnect from the SUBSRIBE socket.
 
 
         * Private:
@@ -57,18 +54,17 @@ class Pupil:
                                # You should check Pupil remote tab if communication performs not well
     screen_width = 4.0
     screen_height = 2.0
-    record_duration = 15 # second
+    duration_calibrate = 5 # second
+    duration_record = 15 # second
     frequency = 120 # Hz
 
     to_points = np.array([ [-screen_width/2, screen_height/2], [screen_width/2, screen_height/2], \
                            [screen_width/2, -screen_height/2], [-screen_width/2, -screen_height/2], [0.0, 0.0] ])
-
-    num_cal_points = to_points.shape[0] # currently 4
+    num_cal_points = to_points.shape[0] # currently 5
 
 
     def __init__(self):
         # PART 1. Connection to Server
-
         context = zmq.Context()
 
         # 1-1. Open a req port to talk to pupil
@@ -96,6 +92,7 @@ class Pupil:
 
         self.Affine_Transforms = [None, None]
 
+
     def calibrate(self, eye_to_clb):
         """
             Argument :
@@ -120,9 +117,8 @@ class Pupil:
         time0 = pupil_position[b'timestamp']
         left_eye = int(str(topic)[self.idx_left_eye]) # 1 : left, 0 : right
 
-        # Coordinate transformation
-        duration_per_point = 5 # second
-        max_num_points = duration_per_point * Pupil.frequency * Pupil.num_cal_points * len(eye_to_clb)
+        # Coordinate transformation # second
+        max_num_points = Pupil.duration_calibrate * Pupil.frequency * Pupil.num_cal_points * len(eye_to_clb)
         data_calibration = np.zeros([max_num_points * Pupil.num_cal_points, 4])
 
         # initialization
@@ -133,14 +129,14 @@ class Pupil:
         X = [np.empty(shape = [0, 2]), np.empty(shape = [0, 2])] # data for left and right eye
         indices_eye_position_change = [[],[]]
 
-        while t < duration_per_point * Pupil.num_cal_points :
+        while t < Pupil.duration_calibrate * Pupil.num_cal_points :
             topic, msg = self.sub_socket.recv_multipart()
             pupil_position = loads(msg)
             x, y = pupil_position[b'norm_pos']
             t = pupil_position[b'timestamp'] - time0
             left_eye = int(str(topic)[self.idx_left_eye])
 
-            new_position = int( t / duration_per_point )
+            new_position = int( t / Pupil.duration_calibrate )
             if new_position > position :
                 print('\a') # change gaze position with beep sound
 
@@ -176,10 +172,6 @@ class Pupil:
 
             # (2) index(label) lookup table
             lut = self._idx_lut(cluster.labels_, indices_eye_position_change[eye])
-            #if lut == None:
-                # Not clusted well
-            #    print("Terminated because not clusted well.. Try again")
-            #    return
             print("lookup table : ", lut)
 
             # (3) get centers from cluster and reorder
@@ -233,11 +225,10 @@ class Pupil:
             2. Transfrom the pupil position to gaze new_position
                With Affine transform matrix with precaculated
         """
-        # check whether calibrated
+        # check whether calibrated and make connection
         if any(self.Affine_Transforms) is False :
             print("You should calibrate before record.")
             return
-
         self.sub_socket.connect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port) )
 
         # Find initial point of time.
@@ -246,17 +237,17 @@ class Pupil:
         time0 = pupil_position[b'timestamp']
 
         # Make null arrays to fill.
-        max_num_points = Pupil.record_duration * Pupil.frequency * 2
+        max_num_points = Pupil.duration_record * Pupil.frequency * 2
         data = np.zeros([max_num_points, 6])
 
         # variable initialization
         t = 0
         index = 0
 
-        # Start with Beep sound
+        # Recording starts with Beep sound
         print('\a')
 
-        while t < Pupil.record_duration:
+        while t < Pupil.duration_record:
             topic, msg = self.sub_socket.recv_multipart()
             pupil_position = loads(msg)
             raw_point = pupil_position[b'norm_pos']
@@ -273,17 +264,14 @@ class Pupil:
             data[index, :] = [t, x, y, left_eye, raw_point[0], raw_point[1]]
             index = index + 1
 
-        # Beep sound
+        # Recoring finishes with Beep sound
         print('\a')
 
-        # PART 3. Convert and save MATLAB file
+        # Convert and save MATLAB file
         current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
         file_name = 'eye_track_gaze_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
         self._save_file(file_name, data)
         self._save_file('eye_track_gaze_data_latest.mat', data)
-        self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
-
-    def disconnect(self):
         self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
 
 
@@ -299,6 +287,7 @@ class Pupil:
         # Show plot
         plt.show()
 
+
     def _save_file(self, file_name, data):
         """ save data in .mat format with file_name
             You can change the directory which the file will be saved.
@@ -306,7 +295,8 @@ class Pupil:
 
         # Assign directory
         linux_prefix = '/mnt/c'
-        file_dir = linux_prefix + '/Users/User/Desktop/eye_tracker/data/'
+        #file_dir = linux_prefix + '/Users/User/Desktop/pypupil../data/'
+        file_dir = 'data/'
         # file name ex : eye_track_data_180101_120847.mat
         file_name = file_dir + file_name
 
@@ -316,27 +306,15 @@ class Pupil:
     def _idx_lut(self, labels, index_change):
         """ get mode of labels in subarray
             and make lookup Table """
-        #print("Labels.shape : ", labels.shape)
-        #print("Indices : ", index_change)
 
         num_points = len(index_change) + 1
-
         spl = np.split(labels, index_change)
         LUT = np.zeros(num_points, dtype = int)
-        repetition_check = []
 
         # Find mode value
         for i in range(num_points):
             points = np.array([spl[i]]).T
             mode_index = stats.mode(points)[0][0]
-
-            #if mode_index in repetition_check:
-                # repetition check
-            #    print("mode index : ", mode_index)
-            #    print(str(repetition_check))
-            #    return None
-            #else:
-            #    repetition_check.append(mode_index)
             LUT[i] = mode_index[0]
 
         return LUT

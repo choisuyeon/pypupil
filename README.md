@@ -27,14 +27,14 @@ python pupil_main.py
 * [numpy](https://scikit-learn.org/) - NumPy is the fundamental package for scientific computing with Python
 * [ZeroMQ](https://zeromq.org/) - A high-performance asynchronous messaging library
 * [MessagePack](https://msgpack.org/) - MessagePack is an efficient binary serialization format
-* [python3-tk](#) -
-* [matplotlib](#) -
-* [MATLAB](#) -
+* [python3-tk](#) - TBU
+* [matplotlib](#) - TBU
+* [MATLAB](#) - TBU
 
 ## Authors
 
 * **Suyeon Choi** - *OEQELAB, SNU* - [choisuyeon](https://github.com/choisuyeon)
 
 ## References
-- [Pupil-labs docs] (https://docs.pupil-labs.com/#developer-docs)
-- [Affine Transformer By Jarno Elonen] (https://elonen.iki.fi/code/misc-notes/affine-fit/)
+- [Pupil-labs docs](https://docs.pupil-labs.com/#developer-docs)
+- [Affine Transformer By Jarno Elonen](https://elonen.iki.fi/code/misc-notes/affine-fit/)
