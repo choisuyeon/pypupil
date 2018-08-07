@@ -5,13 +5,12 @@
 - Synchronization of both eye tracking data
 
 ## Getting Started
-
+You should read how to setup pupil-labs eye tracker on [Pupil labs docuentation](https://docs.pupil-labs.com/#developer-setup)
 
 
 ### Prerequisites
 scipy, sklearn, numpy, zmq, msgpack, matlab, matplotlib
 You can install all of those libraries via pip
-[Pupil labs docuentation](https://docs.pupil-labs.com/#developer-setup) will be helpful.
 
 such as
 ```
@@ -21,7 +20,7 @@ pip install scipy
 
 ## How to use
 ```
-python pupil_main.py
+python pypupil_main.py
 ```
 
 ## Built With
@@ -38,9 +37,9 @@ python pupil_main.py
 ## Authors
 
 * **Suyeon Choi** - *OEQELAB, SNU* - [choisuyeon](https://github.com/choisuyeon)
-Contact : 0310csy@hanmail.net
+###### Contact : 0310csy@hanmail.net*
 
 ## References
 - [Pupil-labs docs](https://docs.pupil-labs.com/#developer-docs)
-  Particularly, synchronization ref : [Synchronization](https://docs.pupil-labs.com/#multi-camera-synchronization)
+- [Pupil-labs docs synchronization](https://docs.pupil-labs.com/#multi-camera-synchronization)
 - [Affine Transformer By Jarno Elonen](https://elonen.iki.fi/code/misc-notes/affine-fit/)

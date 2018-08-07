@@ -35,8 +35,11 @@ class Pupil:
                 Then it applies Affine transform with fixed point.
                 Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)
 
-            record() :
+                Argument : eye_to_calibrate
 
+            record(synchronize) :
+
+                Argument : synchronize whether to synchronize
 
         * Private:
             _save_file(file_name, data) :
@@ -153,7 +156,6 @@ class Pupil:
                 index = 0 # initialize index
 
             data_calibration[global_idx, :] = [t, x, y, left_eye] # for matlab
-
             X[left_eye] = np.append(X[left_eye], [[x, y]], axis = 0) # for later data processing
 
             index = index + 1
@@ -185,12 +187,6 @@ class Pupil:
 
             print("Affine Transform is ")
             print(self.Affine_Transforms[eye].To_Str())
-
-            # TEMP You can delete here
-            #clusters.append(cluster)
-            #luts.append(lut)
-            print("centers of eye" + str(eye) + ": ", cluster.cluster_centers_)
-            # TEMP END
 
 
         # save data into .mat format
@@ -225,7 +221,6 @@ class Pupil:
         1. receive Pupil data from device
         2. Transfrom the pupil position to gaze new_position
                With Affine transform matrix with precaculated
-
         '''
 
         # check whether calibrated and make connection
@@ -322,7 +317,6 @@ class Pupil:
             return
 
         #assert len(qs) == 2
-
         t_sync = index_sync * Pupil.period # time to synchronize
         t0_process = time.time()
 
@@ -362,11 +356,7 @@ class Pupil:
 
         t_real = time.time() - t0
         t_process = time.time() - t0_process
-        #t_delay = t_sync - t_real if t_sync - t_real > 0 else 0.0
         t_delay = t_sync - t_real
-
-        #print("Process time : %.4f ms " % t_process)
-        #print("Feedback time : %.4f ms  " % t_delay)
 
         # Wait(synchronize) and restart thread
         thread_sync = threading.Timer(t_delay, self._synchronize, (qs, index_sync + 1, t0, prev_point))
@@ -382,6 +372,7 @@ class Pupil:
         for i in range(10):
             x, y = (i, 2*i)
             data[i, :] = [x, y]
+
         # Change the line plot below to a scatter plot
         print(data)
         plt.scatter(data[:, 0], data[:, 1])
@@ -394,10 +385,7 @@ class Pupil:
         save data in .mat format with file_name
         You can change the directory which the file will be saved.
         '''
-
-        # Assign directory
         file_dir = 'data/'
-        # file name ex : eye_track_data_180101_120847.mat
         file_name = file_dir + file_name
         scipy.io.savemat(file_name, mdict = {'data' : data})
 
@@ -406,7 +394,6 @@ class Pupil:
         '''
         get mode of labels in subarray
         and make lookup Table
-
         '''
 
         num_points = len(index_change) + 1
