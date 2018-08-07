@@ -43,7 +43,20 @@ while True:
         tracker.calibrate(eyes)
 
     elif command == "g" or command == "get_data":
-        tracker.record()
+        sync = False
+        cmd_sync = input('=' * 60 +
+                        '\nDo you want to synchronize? \n' +
+                        '\t\t y (yes) \n' +
+                        '\t\t n (no) \n' +
+                        '=' * 60 +
+                        '\nInput command : ')
+        if cmd_sync == "y" or cmd_sync == "yes":
+            sync = True
+        elif cmd_sync == "n" or cmd_sync == "no":
+            pass
+        else:
+            continue
+        tracker.record(sync)
 
     elif command == "exit":
         sys.exit(1)

@@ -1,7 +1,8 @@
 # pypupil
-###### Pupil controller in Python3
+###### Eye tracker (Pupil-labs) controller in Python3
 - Calibration without World Camera
 - Record Pupil data and conversion to .mat file
+- Synchronization of both eye tracking data
 
 ## Getting Started
 
@@ -10,6 +11,9 @@
 ### Prerequisites
 scipy, sklearn, numpy, zmq, msgpack, matlab, matplotlib
 You can install all of those libraries via pip
+[Pupil labs docuentation](https://docs.pupil-labs.com/#developer-setup) will be helpful.
+
+such as
 ```
 pip install scipy
 ```
@@ -34,7 +38,9 @@ python pupil_main.py
 ## Authors
 
 * **Suyeon Choi** - *OEQELAB, SNU* - [choisuyeon](https://github.com/choisuyeon)
+Contact : 0310csy@hanmail.net
 
 ## References
 - [Pupil-labs docs](https://docs.pupil-labs.com/#developer-docs)
+  Particularly, synchronization ref : [Synchronization](https://docs.pupil-labs.com/#multi-camera-synchronization)
 - [Affine Transformer By Jarno Elonen](https://elonen.iki.fi/code/misc-notes/affine-fit/)

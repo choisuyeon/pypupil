@@ -6,6 +6,7 @@ import threading
 import math
 import time, datetime
 import os, sys
+from queue import Queue # python 3.7
 
 import numpy as np
 import zmq
@@ -55,8 +56,9 @@ class Pupil:
     screen_width = 4.0
     screen_height = 2.0
     duration_calibrate = 5 # second
-    duration_record = 15 # second
+    duration_record = 10 # second
     frequency = 120 # Hz
+    period = 1 / frequency # s
 
     to_points = np.array([ [-screen_width/2, screen_height/2], [screen_width/2, screen_height/2], \
                            [screen_width/2, -screen_height/2], [-screen_width/2, -screen_height/2], [0.0, 0.0] ])
@@ -94,19 +96,20 @@ class Pupil:
 
 
     def calibrate(self, eye_to_clb):
-        """
-            Argument :
-                eye_to_clb : list of integer ( only right eye : [0]
-                                               only left eye : [1]
-                                               both eyes : [0, 1] )
+        '''
 
-            Calibration order :
-                1st : Left top
-                2nd : Right top
-                3rd : Right bottom
-                4th : Left bottom
-                5th : Center (if needed)
-        """
+        Argument :
+            eye_to_clb : list of integer ( only right eye : [0]
+                                           only left eye : [1]
+                                           both eyes : [0, 1] )
+
+        Calibration order :
+            1st : Left top
+            2nd : Right top
+            3rd : Right bottom
+            4th : Left bottom
+            5th : Center (if needed)
+        '''
         # Beep sound
         print('\a')
         self.sub_socket.connect(b"tcp://%s:%s" %(Pupil.addr_localhost.encode('utf-8'), self.sub_port))
@@ -119,7 +122,7 @@ class Pupil:
 
         # Coordinate transformation # second
         max_num_points = Pupil.duration_calibrate * Pupil.frequency * Pupil.num_cal_points * len(eye_to_clb)
-        data_calibration = np.zeros([max_num_points * Pupil.num_cal_points, 4])
+        data_calibration = np.zeros([max_num_points, 4])
 
         # initialization
         t = 0
@@ -134,6 +137,7 @@ class Pupil:
             pupil_position = loads(msg)
             x, y = pupil_position[b'norm_pos']
             t = pupil_position[b'timestamp'] - time0
+            conf = pupil_position[b'confidence']
             left_eye = int(str(topic)[self.idx_left_eye])
 
             new_position = int( t / Pupil.duration_calibrate )
@@ -154,14 +158,9 @@ class Pupil:
 
             index = index + 1
             global_idx = global_idx + 1
-            print(topic, t, x, y)
+            print("%s at %.3fs | pupil position : (%.3f,%.3f), conf:%.3f" % (topic, t, x, y, conf))
 
-        # TODO : Data squeezing XX
 
-        # TEMP You can delete here
-        #clusters = []
-        #luts = []
-        # TEMP END
         from_points = [[], []]
 
         # processing eye by eye
@@ -217,14 +216,18 @@ class Pupil:
         self._save_file(file_name, data_refine)
         self._save_file('eye_track_after_calib_data_latest.mat', data_refine)
         # TEMP END
+
         self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
 
 
-    def record(self):
-        """ 1. receive Pupil data from device
-            2. Transfrom the pupil position to gaze new_position
+    def record(self, synchronize = False):
+        '''
+        1. receive Pupil data from device
+        2. Transfrom the pupil position to gaze new_position
                With Affine transform matrix with precaculated
-        """
+
+        '''
+
         # check whether calibrated and make connection
         if any(self.Affine_Transforms) is False :
             print("You should calibrate before record.")
@@ -238,7 +241,7 @@ class Pupil:
 
         # Make null arrays to fill.
         max_num_points = Pupil.duration_record * Pupil.frequency * 2
-        data = np.zeros([max_num_points, 6])
+        data = np.zeros([max_num_points, 6]) # Will be deprecated
 
         # variable initialization
         t = 0
@@ -247,33 +250,131 @@ class Pupil:
         # Recording starts with Beep sound
         print('\a')
 
+        # Data acquisition with synchonization (left eye and right eye)
+        qs = [Queue()]
+        if synchronize:
+            self.data = np.zeros([max_num_points, 3])
+            qs.append(Queue())
+            self._synchronize(qs, 0, time.time())
+
+        # Data acquisition from Pupil-labs Eye tracker
         while t < Pupil.duration_record:
             topic, msg = self.sub_socket.recv_multipart()
+
             pupil_position = loads(msg)
             raw_point = pupil_position[b'norm_pos']
+            conf = pupil_position[b'confidence']
             left_eye = int(str(topic)[self.idx_left_eye]) # 1 : left, 0 : right
 
             # get real coordinate with Affine Transform
             x, y = self.Affine_Transforms[left_eye].Transform(raw_point)
-
             # get time
             t = pupil_position[b'timestamp'] - time0
-
-            print(index, left_eye, t, x, y)
 
             data[index, :] = [t, x, y, left_eye, raw_point[0], raw_point[1]]
             index = index + 1
 
+            # Put queue due to synchronization
+            if synchronize:
+                qs[left_eye].put([t, x, y])
+            else:
+                print("%s at %.3fs | gaze position : (%.3f,%.3f), conf:%.3f" % (topic, t, x, y, conf))
+
         # Recoring finishes with Beep sound
         print('\a')
+        self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
+
+        if synchronize:
+            # send synchronization end signal
+            qs.append(None)
+            print("Thread finished..")
+            file_name = 'eye_track_gaze_processed_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
+            self._save_file(file_name, self.data)
+            self._save_file('eye_track_gaze_processed_data_latest.mat', self.data)
+            print("processed data saving...")
 
         # Convert and save MATLAB file
         current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
-        file_name = 'eye_track_gaze_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
+        file_name = 'eye_track_gaze_raw_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
         self._save_file(file_name, data)
-        self._save_file('eye_track_gaze_data_latest.mat', data)
-        self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
+        self._save_file('eye_track_gaze_raw_data_latest.mat', data)
+        print("raw data saving...")
 
+
+    def _synchronize(self, qs, index_sync, t0 = 0.0, prev_point = None):
+        '''
+        start synchronization of asynchronous eye data from both eyes
+        It produces synchonized data every (1/120Hz) second using queue.
+
+        Arguments :
+            qs : list of queues of points received by pupil
+                qs[0] : queue of datum from right eye
+                qs[1] : queue of datum from left eye
+
+            index_sync : it increases as this function called
+
+            t0 : reference time from syncronization start
+
+            prev_point : if one of both eye data does not arrive, We use the data which came just before.
+        '''
+        if None in qs:
+            print("Thread finishing..")
+            return
+
+        #assert len(qs) == 2
+
+        t_sync = index_sync * Pupil.period # time to synchronize
+        t0_process = time.time()
+
+        # Variable initialization
+        qsizes = [ q.qsize() for q in qs ]
+        qsize_min = min(qsizes)
+        qsize_diff = max(qsizes) - qsize_min
+        idx_qsize_max = np.argmax(qsizes)
+        t_diff_max = 0.0
+
+        t, x, y = 0.0, 0.0, 0.0
+        n = 2 * qsize_min
+
+        # Pop from queue and get average
+        if qsize_min == 0 :
+            if prev_point is not None:
+                t, x, y = prev_point
+        else:
+            for i in range(qsize_min):
+                ts = []
+                for q in qs:
+                    top = q.get_nowait()
+                    ts.append(top[0])
+                    t, x, y = t + top[0], x + top[1], y + top[2]
+
+                if abs(ts[1] - ts[0]) > t_diff_max:
+                    t_diff_max = abs(ts[1] - ts[0])
+
+            t, x, y = t / n, x / n, y / n
+            prev_point = t, x, y
+
+            # Flush if t_diff_max > 8.3 ms
+            if t_diff_max > Pupil.period :
+                q = qs[idx_qsize_max]
+                for i in range(qsize_diff):
+                    q.get_nowait()
+
+        t_real = time.time() - t0
+        t_process = time.time() - t0_process
+        #t_delay = t_sync - t_real if t_sync - t_real > 0 else 0.0
+        t_delay = t_sync - t_real
+
+        #print("Process time : %.4f ms " % t_process)
+        #print("Feedback time : %.4f ms  " % t_delay)
+
+        # Wait(synchronize) and restart thread
+        thread_sync = threading.Timer(t_delay, self._synchronize, (qs, index_sync + 1, t0, prev_point))
+        thread_sync.daemon = True
+        thread_sync.start()
+
+        self.data[index_sync, :] = [t_real, x, y] # for matlab
+        print("t_sync : %.3f, t_real : %.3f | gaze position : (%.3f,%.3f)" % (t_sync, t_real, x, y) )
 
     def _plot_graph(self, data = None):
         data = np.zeros(shape = [10, 2])
@@ -289,23 +390,24 @@ class Pupil:
 
 
     def _save_file(self, file_name, data):
-        """ save data in .mat format with file_name
-            You can change the directory which the file will be saved.
-        """
+        '''
+        save data in .mat format with file_name
+        You can change the directory which the file will be saved.
+        '''
 
         # Assign directory
-        linux_prefix = '/mnt/c'
-        #file_dir = linux_prefix + '/Users/User/Desktop/pypupil../data/'
         file_dir = 'data/'
         # file name ex : eye_track_data_180101_120847.mat
         file_name = file_dir + file_name
-
         scipy.io.savemat(file_name, mdict = {'data' : data})
 
 
     def _idx_lut(self, labels, index_change):
-        """ get mode of labels in subarray
-            and make lookup Table """
+        '''
+        get mode of labels in subarray
+        and make lookup Table
+
+        '''
 
         num_points = len(index_change) + 1
         spl = np.split(labels, index_change)
