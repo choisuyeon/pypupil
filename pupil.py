@@ -42,6 +42,8 @@ class Pupil:
                 Argument : synchronize whether to synchronize
 
         * Private:
+            _synchronize():
+
             _save_file(file_name, data) :
                 Save numpy 2d array to .mat file wtih designated file_name.
 
@@ -55,7 +57,7 @@ class Pupil:
 
     addr_localhost = '127.0.0.1'
     port_pupil_remote = '9285' # default value given by Pupil : 50020
-                               # You should check Pupil remote tab if communication performs not well
+                               # You should check Pupil remote tab when communication is not good.
     screen_width = 4.0
     screen_height = 2.0
     duration_calibrate = 5 # second
@@ -165,7 +167,7 @@ class Pupil:
 
         from_points = [[], []]
 
-        # processing eye by eye
+        # postprocessing eye by eye
         for eye in eye_to_clb:
             # (1) get points via k-mean clustering
             cluster = KMeans(n_clusters = Pupil.num_cal_points, random_state = 0).fit(X[eye])
@@ -279,6 +281,8 @@ class Pupil:
         print('\a')
         self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
 
+
+        current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
         if synchronize:
             # send synchronization end signal
             qs.append(None)
@@ -289,11 +293,40 @@ class Pupil:
             print("processed data saving...")
 
         # Convert and save MATLAB file
-        current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
         file_name = 'eye_track_gaze_raw_data_' + current_time + '.mat' # file name ex : eye_track_data_180101_120847.mat
         self._save_file(file_name, data)
         self._save_file('eye_track_gaze_raw_data_latest.mat', data)
         print("raw data saving...")
+
+    def get_calibration_points(self):
+        return Pupil.to_points
+
+    def get_duration(self, type):
+        if type == 'calibration':
+            return Pupil.duration_calibrate
+        elif type == 'record':
+            return Pupil.duration_record
+        else:
+            print("Unbeseeming type")
+            return 0.0
+
+
+    def set_calibration_points(self, new_points):
+        '''
+        new_points : list of points to calibrate
+        '''
+        # TODO : check whether new_points's type is numpy 2d array
+
+        Pupil.to_points = new_points
+        Pupil.num_cal_points = Pupil.to_points.shape[0]
+
+    def set_duration(self, type, duration):
+        if type == 'calibration':
+            Pupil.duration_calibrate = duration
+        elif type == 'record':
+            Pupil.duration_record = duration
+
+
 
 
     def _synchronize(self, qs, index_sync, t0 = 0.0, prev_point = None):

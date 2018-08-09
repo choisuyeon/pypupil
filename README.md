@@ -1,5 +1,5 @@
 # pypupil
-###### Eye tracker (Pupil-labs) controller in Python3
+###### Eye tracker (Pupil-labs) helper in Python3
 - Calibration without World Camera
 - Record Pupil data and conversion to .mat file
 - Synchronization of both eye tracking data
