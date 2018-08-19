@@ -8,7 +8,7 @@ y = data(:, 3);
 c = data(:, 4);
 fig1 = figure;
 subplot(2,1,1);
-scatter(x, y, 5, c, 'filled')
+scatter(x, y, 10, c, 'filled')
 title('Before transform (Both eyes)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
 
 load('C:\Users\User\Desktop\pypupil\data\eye_track_after_calib_data_latest.mat')
@@ -17,9 +17,9 @@ y = data(:, 3);
 %c = linspace(1, 10, length(x));
 c = data(:, 4);
 subplot(2,1,2);
-scatter(x, y, 5, c, 'filled')
-xlim ([-2.5 2.5])
-ylim ([-1.5 1.5])
+scatter(x, y, 10, c, 'filled')
+xlim ([-30 30])
+ylim ([-20 20])
 title('After transform (Both eyes)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
 
 %%%% Before Average
@@ -45,19 +45,19 @@ c = data_left(:, 4);
 fig2 = figure;
 
 subplot(2,1,1);
-scatter(x_left, y_left, 5, 'y', 'filled')
+scatter(x_left, y_left, 10, 'y', 'filled')
 axis tight;
-xlim ([-2.5 2.5])
-ylim ([-1.5 1.5])
+xlim ([-30 30])
+ylim ([-20 20])
 title('Own gaze data (Left eye)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
 
 subplot(2,1,2);
-scatter(x_right, y_right, 5, 'b', 'filled')
-xlim ([-2.5 2.5])
-ylim ([-1.5 1.5])
+scatter(x_right, y_right, 20, 'b', 'filled')
+xlim ([-30 30])
+ylim ([-20 20])
 title('Own gaze data (Right eye)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
-set(fig1,'Position',[400 0 500 1000])
-set(fig2,'Position',[900 0 500 1000])
+set(fig1,'Position',[0 0 500 1000])
+set(fig2,'Position',[500 0 500 1000])
 
 
 
@@ -71,7 +71,8 @@ y = data(:, 3);
 %c = data(:, 1);
 
 fig3 = figure;
-scatter(x, y, 5, [0 0 0], 'filled')
-xlim ([-2.5 2.5])
-ylim ([-1.5 1.5])
+scatter(x, y, 10, [0 0 0], 'filled')
+xlim ([-30 30])
+ylim ([-20 20])
 title('After Synchonization (Both eyes)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
+set(fig3,'Position',[1000 250 540 320])

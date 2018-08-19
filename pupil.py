@@ -63,10 +63,10 @@ class Pupil:
     addr_localhost = '127.0.0.1'
     port_pupil_remote = '50020' # default value given by Pupil : 50020
                                 # You should check Pupil remote tab when communication is not good.
-    screen_width = 4.0
-    screen_height = 2.0
-    duration_calibrate = 5 # second
-    duration_record = 10 # second
+    screen_width = 54.0
+    screen_height = 32.0
+    duration_calibrate = 6 # second
+    duration_record = 20 # second
     frequency = 120 # Hz
     period = 1 / frequency # second
     dummy_period = 1 # second
@@ -76,13 +76,13 @@ class Pupil:
     num_cal_points = to_points.shape[0] # currently 5
 
 
-    def __init__(self, port_remote = '2'):
+    def __init__(self, port_remote = '50020'):
         # PART 1. Connection to Server
         context = zmq.Context()
 
         # 1-1. Open a req port to talk to pupil
         req_socket = context.socket(zmq.REQ)
-        port_pupil_remote = port_remote
+        Pupil.port_pupil_remote = port_remote
         req_socket.connect( "tcp://%s:%s" %(Pupil.addr_localhost, Pupil.port_pupil_remote) )
 
         # 1-2. Ask for the sub port
