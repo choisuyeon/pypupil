@@ -71,6 +71,9 @@ class Pupil:
     period = 1 / frequency # second
     dummy_period = 1 # second
 
+    conf_th_calib = 0.02
+    conf_th_record = 0.2
+
     to_points = np.array([ [-screen_width/2, screen_height/2], [screen_width/2, screen_height/2], \
                            [screen_width/2, -screen_height/2], [-screen_width/2, -screen_height/2], [0.0, 0.0] ])
     num_cal_points = to_points.shape[0] # currently 5
@@ -176,6 +179,14 @@ class Pupil:
             else:
             # END - Dummy processing
 
+                # START - Confidence test
+                if conf < Pupil.conf_th_calib:
+                    print("Deleted because of low confidence", conf)
+                    continue             
+
+
+                # END - Confidence test
+
                 data_calibration[global_idx, :] = [t, x, y, left_eye] # for matlab
                 X[left_eye] = np.append(X[left_eye], [[x, y]], axis = 0) # for later data processing
 
@@ -280,6 +291,13 @@ class Pupil:
             pupil_position = loads(msg)
             raw_point = pupil_position[b'norm_pos']
             conf = pupil_position[b'confidence']
+
+
+            if conf < Pupil.conf_th_record :
+                print("Deleted because of low confidence", conf)
+                continue             
+
+
             left_eye = int(str(topic)[self.idx_left_eye]) # 1 : left, 0 : right
 
             # get real coordinate with Affine Transform

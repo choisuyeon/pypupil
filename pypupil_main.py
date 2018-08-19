@@ -11,7 +11,7 @@ from pupil import Pupil
 if __name__ == "__main__" :
     print("start eye tracker")
 
-tracker = Pupil('9285');
+tracker = Pupil('9289');
 
 while True:
     time.sleep(1)
@@ -73,6 +73,9 @@ while True:
     elif command == "p":
         tracker._plot_graph()
 
+        
+
     elif command == "t":
         tracker.calibrate([0,1], True)
         tracker.record(True)
+
