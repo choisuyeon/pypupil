@@ -1,6 +1,11 @@
+#################################################################################
 # AUTHOR : Suyeon Choi
 # DATE : July 31, 2018
 # Open-source lib Usage : scipy, sklearn, numpy, zmq, msgpack, affine_transformer
+#
+# Pupil-labs Eye tracker controller module in Python3
+#################################################################################
+
 
 import threading
 import math
@@ -56,26 +61,28 @@ class Pupil:
     """
 
     addr_localhost = '127.0.0.1'
-    port_pupil_remote = '9285' # default value given by Pupil : 50020
-                               # You should check Pupil remote tab when communication is not good.
+    port_pupil_remote = '50020' # default value given by Pupil : 50020
+                                # You should check Pupil remote tab when communication is not good.
     screen_width = 4.0
     screen_height = 2.0
     duration_calibrate = 5 # second
     duration_record = 10 # second
     frequency = 120 # Hz
-    period = 1 / frequency # s
+    period = 1 / frequency # second
+    dummy_period = 1 # second
 
     to_points = np.array([ [-screen_width/2, screen_height/2], [screen_width/2, screen_height/2], \
                            [screen_width/2, -screen_height/2], [-screen_width/2, -screen_height/2], [0.0, 0.0] ])
     num_cal_points = to_points.shape[0] # currently 5
 
 
-    def __init__(self):
+    def __init__(self, port_remote = '2'):
         # PART 1. Connection to Server
         context = zmq.Context()
 
         # 1-1. Open a req port to talk to pupil
         req_socket = context.socket(zmq.REQ)
+        port_pupil_remote = port_remote
         req_socket.connect( "tcp://%s:%s" %(Pupil.addr_localhost, Pupil.port_pupil_remote) )
 
         # 1-2. Ask for the sub port
@@ -100,7 +107,7 @@ class Pupil:
         self.Affine_Transforms = [None, None]
 
 
-    def calibrate(self, eye_to_clb):
+    def calibrate(self, eye_to_clb = [0, 1], USE_DUMMY_PERIOD = True):
         '''
 
         Argument :
@@ -129,7 +136,7 @@ class Pupil:
         max_num_points = Pupil.duration_calibrate * Pupil.frequency * Pupil.num_cal_points * len(eye_to_clb)
         data_calibration = np.zeros([max_num_points, 4])
 
-        # initialization
+        # Initialization
         t = 0
         position = 0
         index = 0
@@ -137,6 +144,7 @@ class Pupil:
         X = [np.empty(shape = [0, 2]), np.empty(shape = [0, 2])] # data for left and right eye
         indices_eye_position_change = [[],[]]
 
+        # Data collecting
         while t < Pupil.duration_calibrate * Pupil.num_cal_points :
             topic, msg = self.sub_socket.recv_multipart()
             pupil_position = loads(msg)
@@ -157,12 +165,23 @@ class Pupil:
                     indices_eye_position_change[eye].append(len(X[eye]))
                 index = 0 # initialize index
 
-            data_calibration[global_idx, :] = [t, x, y, left_eye] # for matlab
-            X[left_eye] = np.append(X[left_eye], [[x, y]], axis = 0) # for later data processing
+            # START - Dummy processing...
+            t_from_new_position = t - Pupil.duration_calibrate * new_position
 
-            index = index + 1
-            global_idx = global_idx + 1
-            print("%s at %.3fs | pupil position : (%.3f,%.3f), conf:%.3f" % (topic, t, x, y, conf))
+            if USE_DUMMY_PERIOD and t_from_new_position < Pupil.dummy_period:
+                # TODO : discard data
+                print("%s at %.3fs | pupil position : (%.3f,%.3f)" % (topic, t, x, y) + " ** Will be treated as dummy **")
+                pass
+
+            else:
+            # END - Dummy processing
+
+                data_calibration[global_idx, :] = [t, x, y, left_eye] # for matlab
+                X[left_eye] = np.append(X[left_eye], [[x, y]], axis = 0) # for later data processing
+
+                index = index + 1
+                global_idx = global_idx + 1
+                print("%s at %.3fs | pupil position : (%.3f,%.3f), conf:%.3f" % (topic, t, x, y, conf))
 
 
         from_points = [[], []]

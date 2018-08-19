@@ -1,7 +1,9 @@
+#################################################################################
 # AUTHOR : Suyeon Choi
 # DATE : August 1, 2018
-
+#
 # Command line interface for pypupil
+#################################################################################
 import time
 import sys
 from pupil import Pupil
@@ -9,7 +11,7 @@ from pupil import Pupil
 if __name__ == "__main__" :
     print("start eye tracker")
 
-tracker = Pupil();
+tracker = Pupil('50020');
 
 while True:
     time.sleep(1)
@@ -40,7 +42,14 @@ while True:
         else:
             continue
 
-        tracker.calibrate(eyes)
+        cmd_dummy = input('=' * 60 +
+                        '\nDummy?\n' +
+                        '\t\t y (Use dummy) \n' +
+                        '\t\t n (Do not use dummy) \n' +
+                        '\nInput command : ')
+        dummy = True if cmd_dummy == 'y' else False
+
+        tracker.calibrate(eyes, dummy)
 
     elif command == "g" or command == "get_data":
         sync = False

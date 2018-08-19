@@ -1,7 +1,9 @@
+#################################################################################
 # AUTHOR : Suyeon Choi
 # DATE : July 27, 2018
-# Eye tracker based on the pupil_basic.py by Seokil, Moon
-
+#
+# Eye tracker controller module based on the pupil_basic.py by Seokil, Moon
+#################################################################################
 import zmq
 from msgpack import loads
 import threading
