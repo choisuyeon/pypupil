@@ -1,11 +1,12 @@
-# pypupil
+# pypupil (beta)
 ###### Eye tracker (Pupil-labs) helper in Python3
 - Calibration without World Camera
 - Record Pupil data and conversion to .mat file
 - Synchronization of both eye tracking data
 
 ## Getting Started
-You should read how to setup pupil-labs eye tracker on [Pupil labs docuentation](https://docs.pupil-labs.com/#developer-setup)
+You should read the official docs from Pupil-labs  
+: how to setup pupil-labs eye tracker [Pupil labs docuentation](https://docs.pupil-labs.com/#developer-setup)
 
 
 ### Prerequisites
@@ -19,9 +20,11 @@ pip install scipy
 
 
 ## How to use
+1. You can use Command Line Interface
 ```
 python pypupil_main.py
 ```
+2. or use the module with given [API](#)
 
 ## Built With
 

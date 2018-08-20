@@ -23,6 +23,8 @@ while True:
                     '=' * 60 +
                     '\nInput command : ')
     print('\n')
+
+    
     if command == "c" or command == "calibrate":
         eyes = []
         cmd_eye = input('=' * 60 +
@@ -51,6 +53,7 @@ while True:
 
         tracker.calibrate(eyes, dummy)
 
+
     elif command == "g" or command == "get_data":
         sync = False
         cmd_sync = input('=' * 60 +
@@ -65,17 +68,29 @@ while True:
             pass
         else:
             continue
-        tracker.record(sync)
+        tracker._record(sync)
+
 
     elif command == "exit":
         sys.exit(1)
 
+
     elif command == "p":
         tracker._plot_graph()
 
-        
 
     elif command == "t":
-        tracker.calibrate([0,1], True)
-        tracker.record(True)
+        tracker.calibrate([0, 1], True)
+        tracker._record(True)
 
+
+    elif command == "r":
+        sync = True
+        data = tracker.record(sync)
+        data_processed = np.column_stack( (data['timestamp'], data['x'], data['y']) )
+
+        curr_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
+        file_name_prefix = 'eye_track_gaze_processed_data_'
+        self._save_file(file_name_prefix + curr_time + '.mat', data_processed)
+        self._save_file(file_name_prefix + curr_time + '_latest.mat', data_processed)
+        print("Processed data saving...")
