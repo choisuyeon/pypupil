@@ -232,10 +232,18 @@ class Pupil:
 
 
     def get_calibration_frame(self):
+        """
+        returns: frame of calibration (list of points)
+        """
         return self.to_points
 
 
     def get_duration(self, type):
+        """
+        :param string type: 'calibration' or 'record'
+
+        returns: duration        
+        """
         if type == 'calibration':
             return self.duration_calibrate
         elif type == 'record':

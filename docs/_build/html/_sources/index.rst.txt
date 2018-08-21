@@ -5,6 +5,10 @@
 
 Pypupil's documentation
 ===================================
+Pupil-labs Eye tracker helper module in Python3
+
+
+
 .. warning::
 
    This is an incomplete package

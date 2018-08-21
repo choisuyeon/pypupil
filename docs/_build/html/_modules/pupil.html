@@ -375,10 +375,18 @@
 
 
 <div class="viewcode-block" id="Pupil.get_calibration_frame"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.get_calibration_frame">[docs]</a>    <span class="k">def</span> <span class="nf">get_calibration_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        returns: frame of calibration (list of points)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_points</span></div>
 
 
 <div class="viewcode-block" id="Pupil.get_duration"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.get_duration">[docs]</a>    <span class="k">def</span> <span class="nf">get_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param string type: &#39;calibration&#39; or &#39;record&#39;</span>
+
+<span class="sd">        returns: duration        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;calibration&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_calibrate</span>
         <span class="k">elif</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;record&#39;</span><span class="p">:</span>
