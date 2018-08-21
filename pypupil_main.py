@@ -19,7 +19,9 @@ while True:
     command = input('=' * 60 +
                     '\nPossible commands \n' +
                     '\t\t c (calibrate) \n' +
-                    '\t\t g (get_data) \n' +
+                    '\t\t g (get_data, deprecated) \n' +
+                    '\t\t r (record, you should use this) \n' +
+                    '\t\t t (test) \n' +
                     '\t\t exit \n' +
                     '=' * 60 +
                     '\nInput command : ')
@@ -99,10 +101,7 @@ while True:
             pass
         else:
             continue
-
-
         data = tracker.record(sync, 5)
-
 
         curr_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
         data_processed = np.column_stack( (data['timestamp'], data['x'], data['y']) )
@@ -111,7 +110,6 @@ while True:
         tracker._save_file(file_name_prefix + curr_time + '.mat', data_processed)
         tracker._save_file(file_name_prefix + 'latest.mat', data_processed)
         print("Processed data saving...")
-
 
         data_raw = data['raw']
         data_raw = np.column_stack( (data_raw['timestamp'], data_raw['x_transformed'], \

@@ -5,7 +5,7 @@
 - Synchronization of both eye tracking data
 
 ## API docs
-[Pypupil docs](https://choisuyeon.github.io/pypupil_docs)
+[Pypupil docs](https://choisuyeon.github.io/docs-pypupil)
 
 ## Getting Started
 You should read the official docs from Pupil-labs  

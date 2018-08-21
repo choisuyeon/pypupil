@@ -122,7 +122,7 @@ class Pupil:
                        ↗                   ↓
                    ↗                       │
                ↗                           │
-            4 ━━━━━━━━━━━━━<<<━━━━━━━━━━━━━ 5
+            4 ━━━━━━━━━━━━━<<<━━━━━━━━━━━━━ 3
 
 
         You might hear "beep" sound for each stage.
