@@ -1,11 +1,7 @@
-#################################################################################
-# AUTHOR : Suyeon Choi
-# DATE : July 31, 2018
-# Open-source lib Usage : scipy, sklearn, numpy, zmq, msgpack, affine_transformer
-#
-# Pupil-labs Eye tracker controller module in Python3
-#################################################################################
+"""
+.. author:: Suyeon Choi <0310csy@hanmail.net>
 
+"""
 
 import threading
 import math
@@ -24,65 +20,26 @@ from affine_transformer import Affine_Fit
 
 
 class Pupil:
-    """ Instruction
-        API
+    """
+        Pupil-labs Eye tracker controller module in Python3
 
-        * Public :
-            calibrate(eye_to_clb) :
-                Select eyes to calibrate (monocular, binocular)
-                It starts with beep sound
-                Then gaze the position with predefined reorder ::
+        July 31, 2018 Suyeon Choi
 
-                    Left top -> Right top -> Right bottom -> Left bottom -> Center (if needed)
-
-                You might hear "beep" sound for each stage.
-                After collecting data, pyPupil clusters the datum and finds the average position of each gaze.
-                Then it applies Affine transform with fixed point.
-                Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)
-
-                Argument : eye_to_calibrate
-
-            record(synchronize) :
-
-                Argument : synchronize whether to synchronize
-
-        * Private:
-            _synchronize():
-
-            _save_file(file_name, data) :
-                Save numpy 2d array to .mat file wtih designated file_name.
-
-            _idx_lut() :
-                Returns Lookup Table of idx of n_clusters
-                This is necessary because K-mean clustering does not guarantee
-                the order of centers which I intended.
-
-                This method get mode of labels in subarray then make lookuptable.
     """
 
     addr_localhost = '127.0.0.1'
     port_pupil_remote = '50020' # default value given by Pupil : 50020
                                 # You should check Pupil remote tab when communication is not good.
-    screen_width = 54.0
-    screen_height = 32.0
-    duration_calibrate = 6 # second
-    duration_record = 20 # second
+
     frequency = 120 # Hz
     period = 1 / frequency # second
-    dummy_period = 1 # second
-
-    conf_th_calib = 0.02
-    conf_th_record = 0.2
-
-    to_points = np.array([ [-screen_width/2, screen_height/2], [screen_width/2, screen_height/2], \
-                           [screen_width/2, -screen_height/2], [-screen_width/2, -screen_height/2], [0.0, 0.0] ])
-    num_cal_points = to_points.shape[0] # currently 5
 
 
 
-    """
-    Constructor
-    """
+
+
+
+
     def __init__(self, port_remote = '50020'):
         # 1. Connection to Server
         context = zmq.Context()
@@ -111,29 +68,58 @@ class Pupil:
         self.Affine_Transforms = [None, None]
 
 
+
+        self.duration_calibrate = 6 # second
+        self.duration_record = 20 # second
+        self.dummy_period = 1 # second
+        self.screen_width = 54.0
+        self.screen_height = 32.0
+        self.to_points = np.array([ [-self.screen_width/2, self.screen_height/2], [self.screen_width/2, self.screen_height/2], \
+                               [self.screen_width/2, -self.screen_height/2], [-self.screen_width/2, -self.screen_height/2], [0.0, 0.0] ])
+        self.num_cal_points = self.to_points.shape[0] # currently 5
+
+
     """
     Public Methods
     """
     def calibrate(self, eye_to_clb = [0, 1], USE_DUMMY_PERIOD = True):
         '''
+        :param list eye_to_clb:
+                                list of integer ( only right eye : [0]
+                                                  only left eye : [1]
+                                                  both eyes : [0, 1] )
 
-        Argument :
-            eye_to_clb : list of integer ( only right eye : [0]
-                                           only left eye : [1]
-                                           both eyes : [0, 1] )
-            USE_DUMMY_PERIOD = True if you want to discard the data in transition of gaze.
+        :param bool USE_DUMMY_PERIOD: True if you want to discard the data in transition of gaze.
 
-        Calibration order :
-            1st : Left top
-            2nd : Right top
-            3rd : Right bottom
-            4th : Left bottom
-            5th : Center (if needed)
+
+        Select eyes to calibrate (monocular, binocular)
+        It starts with beep sound
+        Then gaze the position with predefined reorder ::
+
+            Left top -> Right top -> Right bottom -> Left bottom -> Center (if needed)
+
+            1 ━━━━━━━━━━━━━>>>━━━━━━━━━━━━━ 2
+            │                               │
+            │                               │
+            ↑                               ↓
+            ↑               5               ↓
+            ↑          ↗                   ↓
+            │      ↗                       │
+            │  ↗                           │
+            4 ━━━━━━━━━━━━━<<<━━━━━━━━━━━━━ 5
+
+
+        You might hear "beep" sound for each stage.
+        After collecting data, pyPupil clusters the datum and finds the average position of each gaze.
+        Then it applies Affine transform with fixed point.
+        Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)
+
+
         '''
         sub_socket, time0 = self._start_connection()
 
         # Coordinate transformation # second
-        max_num_points = Pupil.duration_calibrate * Pupil.frequency * Pupil.num_cal_points * len(eye_to_clb)
+        max_num_points = self.duration_calibrate * Pupil.frequency * self.num_cal_points * len(eye_to_clb)
         data_calibration = np.empty([max_num_points, 4])
 
         # Initialization
@@ -145,7 +131,7 @@ class Pupil:
         indices_eye_position_change = [[],[]]
 
         # Data collecting
-        while t < Pupil.duration_calibrate * Pupil.num_cal_points :
+        while t < self.duration_calibrate * self.num_cal_points :
             topic, msg = sub_socket.recv_multipart()
             pupil_position = loads(msg)
             x, y = pupil_position[b'norm_pos']
@@ -153,12 +139,12 @@ class Pupil:
             conf = pupil_position[b'confidence']
             left_eye = int(str(topic)[self.idx_left_eye])
 
-            new_position = int( t / Pupil.duration_calibrate )
+            new_position = int( t / self.duration_calibrate )
             if new_position > position :
                 self._beep() # change gaze position with beep sound
 
                 position = new_position # update position
-                if position == Pupil.num_cal_points :
+                if position == self.num_cal_points :
                     break
 
                 for eye in eye_to_clb:
@@ -166,9 +152,9 @@ class Pupil:
                 index = 0 # initialize index
 
             # START - Dummy processing...
-            t_from_new_position = t - Pupil.duration_calibrate * new_position
+            t_from_new_position = t - self.duration_calibrate * new_position
 
-            if USE_DUMMY_PERIOD and t_from_new_position < Pupil.dummy_period:
+            if USE_DUMMY_PERIOD and t_from_new_position < self.dummy_period:
                 # TODO : discard data
                 print("%s at %.3fs | pupil position : (%.3f,%.3f)" % (topic, t, x, y) + " ** Will be treated as dummy **")
                 pass
@@ -199,7 +185,7 @@ class Pupil:
         # postprocessing eye by eye
         for eye in eye_to_clb:
             # (1) get points via k-mean clustering
-            cluster = KMeans(n_clusters = Pupil.num_cal_points, random_state = 0).fit(X[eye])
+            cluster = KMeans(n_clusters = self.num_cal_points, random_state = 0).fit(X[eye])
             # TODO : plot matplot will be convenient
 
             # (2) index(label) lookup table
@@ -211,7 +197,7 @@ class Pupil:
             print("clustered point : ", from_points[eye])
 
             # (4) affine fitting (calibration)
-            self.Affine_Transforms[eye] = Affine_Fit(from_points[eye], Pupil.to_points)
+            self.Affine_Transforms[eye] = Affine_Fit(from_points[eye], self.to_points)
             if self.Affine_Transforms[eye] == False:
                 print("Not clustered well, Try again")
                 return
@@ -227,7 +213,7 @@ class Pupil:
         self._save_file('eye_track_before_calib_data_latest.mat', data_calibration)
 
         # TEMP : save after transform data for visualization
-        data_refine = np.empty([max_num_points * Pupil.num_cal_points, 4])
+        data_refine = np.empty([max_num_points * self.num_cal_points, 4])
 
         for i in range(data_calibration.shape[0]):
             eye = int(data_calibration[i][3])
@@ -246,29 +232,33 @@ class Pupil:
 
 
     def get_calibration_frame(self):
-        return Pupil.to_points
+        return self.to_points
 
 
     def get_duration(self, type):
         if type == 'calibration':
-            return Pupil.duration_calibrate
+            return self.duration_calibrate
         elif type == 'record':
-            return Pupil.duration_record
+            return self.duration_record
         else:
             print("Unbeseeming type")
             return 0.0
 
 
-    def record(self, duration = duration_record, synchronize = False):
+    def record(self, duration = 20.0, synchronize = False):
         '''
-        Return recorded data
+        :param float duration: duration for Recording
+        :param bool synchonize: whether to synchronize data from both eye (average)
 
-        Procedure :
+        :returns: The 2D Array of recorded data
+
+        Procedure
+        -----------------
         1. receive Pupil data from device
-        2. Transfrom the pupil position to gaze new_position
-               With Affine transform matrix with precaculated
-        3(If syncronize option is selected).
+        2. transfrom the pupil position to gaze new_position with Affine transform matrix with precaculated
+        3. (If syncronize option is selected)
            Synchronize both eyes' data with average.
+
         '''
         # check whether calibrated and make connection
         if any(self.Affine_Transforms) is False :
@@ -363,23 +353,31 @@ class Pupil:
 
     def set_calibration_frame(self, new_points):
         '''
-        new_points : list of points to calibrate
+        :param list new_points: list of points to calibrate
         '''
         # TODO : check whether new_points's type is numpy 2d array
 
-        Pupil.to_points = new_points
-        Pupil.num_cal_points = Pupil.to_points.shape[0]
+        self.to_points = new_points
+        self.num_cal_points = self.to_points.shape[0]
 
 
     def set_duration(self, type, duration):
+        """
+        :param string type: calibration or record
+        :param float duration: duration for calibration or record
+        """
         if type == 'calibration':
-            Pupil.duration_calibrate = duration
+            self.duration_calibrate = duration
         elif type == 'record':
-            Pupil.duration_record = duration
+            self.duration_record = duration
 
 
     def save_data_dict(self, file_name, data_dict, object_name = 'data'):
         '''
+        :param string file_name: name of file
+        :param dict data_dict: dictionary that is from pypupil.
+        :param string object_name: name of data in MATLAB.
+
         save data in .mat format with file name,
         You can put data as dictionary type, which is given py pypupil.
         This method will automatically convert the data into 2d array with given column order.
@@ -398,6 +396,8 @@ class Pupil:
 
     def throw(self, duration = 1000):
         '''
+        :param float duration : duration
+
         Get processed data in real time
         '''
         # check whether calibrated and make connection
@@ -456,9 +456,6 @@ class Pupil:
 
 
 
-    """
-    Private Methods
-    """
     def _synchronize(self, qs, index_sync, t0 = 0.0, prev_point = None):
         '''
         start synchronization of asynchronous eye data from both eyes
@@ -563,6 +560,16 @@ class Pupil:
 
     def _idx_lut(self, labels, index_change):
         '''
+        :param list labels: list of labels
+        :param list index_change : list of indices that change gaze position
+
+        :returns: Lookup Table of idx of n_clusters
+
+        This is necessary because K-mean clustering does not guarantee
+        the order of centers which I intended.
+
+        This method get mode of labels in subarray then make lookuptable.
+
         get mode of labels in subarray
         and make lookup Table
         '''
@@ -631,7 +638,7 @@ class Pupil:
         time0 = pupil_position[b'timestamp']
 
         # Make null arrays to fill.
-        max_num_points = Pupil.duration_record * Pupil.frequency * 2
+        max_num_points = self.duration_record * Pupil.frequency * 2
         data = np.empty([max_num_points, 6]) # Will be deprecated
 
         # variable initialization
@@ -649,7 +656,7 @@ class Pupil:
             self._synchronize(qs, 0, time.time())
 
         # Data acquisition from Pupil-labs Eye tracker
-        while t < Pupil.duration_record:
+        while t < self.duration_record:
             topic, msg = self.sub_socket.recv_multipart()
 
             pupil_position = loads(msg)
@@ -698,3 +705,12 @@ class Pupil:
         self._save_file(file_name, data)
         self._save_file('eye_track_gaze_raw_data_latest.mat', data)
         print("raw data saving...")
+
+
+"""
+
+Open-source lib usage
+---------------------
+scipy, sklearn, numpy, zmq, msgpack, affine_transformer
+
+"""

@@ -1,0 +1,7 @@
+pypupil\_main module
+============================
+
+.. automodule:: pypupil_main
+    :members:
+    :undoc-members:
+    :show-inheritance:

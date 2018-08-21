@@ -1,0 +1,7 @@
+pypupil.affine\_transformer module
+==================================
+
+.. automodule:: pypupil.affine_transformer
+    :members:
+    :undoc-members:
+    :show-inheritance:

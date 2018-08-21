@@ -1,0 +1,7 @@
+pypupil.serializer module
+=========================
+
+.. automodule:: pypupil.serializer
+    :members:
+    :undoc-members:
+    :show-inheritance:

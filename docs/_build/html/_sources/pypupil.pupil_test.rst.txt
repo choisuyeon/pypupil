@@ -1,0 +1,7 @@
+pypupil.pupil\_test module
+==========================
+
+.. automodule:: pypupil.pupil_test
+    :members:
+    :undoc-members:
+    :show-inheritance:

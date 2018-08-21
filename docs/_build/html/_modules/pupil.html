@@ -1,0 +1,917 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>pupil &mdash; pypupil 0.9 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> pypupil
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../pupil.html"><code class="docutils literal notranslate"><span class="pre">pypupil</span></code> module</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">pypupil</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Module code</a> &raquo;</li>
+        
+      <li>pupil</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for pupil</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">.. author:: Suyeon Choi &lt;0310csy@hanmail.net&gt;</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">time</span><span class="o">,</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">queue</span> <span class="k">import</span> <span class="n">Queue</span> <span class="c1"># python 3.7</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">zmq</span>
+<span class="kn">from</span> <span class="nn">msgpack</span> <span class="k">import</span> <span class="n">loads</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="k">import</span> <span class="n">stats</span>
+<span class="kn">import</span> <span class="nn">scipy.io</span>
+<span class="kn">from</span> <span class="nn">sklearn.cluster</span> <span class="k">import</span> <span class="n">KMeans</span>
+
+<span class="kn">from</span> <span class="nn">affine_transformer</span> <span class="k">import</span> <span class="n">Affine_Fit</span>
+
+
+<div class="viewcode-block" id="Pupil"><a class="viewcode-back" href="../pupil.html#pupil.Pupil">[docs]</a><span class="k">class</span> <span class="nc">Pupil</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pupil-labs Eye tracker controller module in Python3</span>
+
+<span class="sd">        July 31, 2018 Suyeon Choi</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">addr_localhost</span> <span class="o">=</span> <span class="s1">&#39;127.0.0.1&#39;</span>
+    <span class="n">port_pupil_remote</span> <span class="o">=</span> <span class="s1">&#39;50020&#39;</span> <span class="c1"># default value given by Pupil : 50020</span>
+                                <span class="c1"># You should check Pupil remote tab when communication is not good.</span>
+
+    <span class="n">frequency</span> <span class="o">=</span> <span class="mi">120</span> <span class="c1"># Hz</span>
+    <span class="n">period</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">frequency</span> <span class="c1"># second</span>
+
+
+
+
+
+
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port_remote</span> <span class="o">=</span> <span class="s1">&#39;50020&#39;</span><span class="p">):</span>
+        <span class="c1"># 1. Connection to Server</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="n">zmq</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
+
+        <span class="c1"># 1-1. Open a req port to talk to pupil</span>
+        <span class="n">req_socket</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">REQ</span><span class="p">)</span>
+        <span class="n">Pupil</span><span class="o">.</span><span class="n">port_pupil_remote</span> <span class="o">=</span> <span class="n">port_remote</span>
+        <span class="n">req_socket</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span> <span class="s2">&quot;tcp://</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span><span class="p">(</span><span class="n">Pupil</span><span class="o">.</span><span class="n">addr_localhost</span><span class="p">,</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">port_pupil_remote</span><span class="p">)</span> <span class="p">)</span>
+
+        <span class="c1"># 1-2. Ask for the sub port</span>
+        <span class="n">req_socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span> <span class="sa">b</span><span class="s1">&#39;SUB_PORT&#39;</span> <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub_port</span> <span class="o">=</span> <span class="n">req_socket</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+
+        <span class="c1"># 1-3. Open a sub port to listen to gaze</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">SUB</span><span class="p">)</span>
+
+        <span class="c1"># You can select topic between &quot;gaze&quot; and &quot;pupil&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Automatically set to deal with pupil data. (not gaze)&quot;</span><span class="p">)</span>
+        <span class="n">topic</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;pupil.&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">SUBSCRIBE</span><span class="p">,</span> <span class="n">topic</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">topic</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;pupil.&#39;</span> <span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">idx_left_eye</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span>
+        <span class="k">else</span> <span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">idx_left_eye</span> <span class="o">=</span> <span class="o">-</span><span class="mi">3</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+
+
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">duration_calibrate</span> <span class="o">=</span> <span class="mi">6</span> <span class="c1"># second</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duration_record</span> <span class="o">=</span> <span class="mi">20</span> <span class="c1"># second</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_period</span> <span class="o">=</span> <span class="mi">1</span> <span class="c1"># second</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen_width</span> <span class="o">=</span> <span class="mf">54.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen_height</span> <span class="o">=</span> <span class="mf">32.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">to_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span> <span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen_height</span><span class="o">/</span><span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen_height</span><span class="o">/</span><span class="mi">2</span><span class="p">],</span> \
+                               <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_height</span><span class="o">/</span><span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_height</span><span class="o">/</span><span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span> <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_cal_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># currently 5</span>
+
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Public Methods</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Pupil.calibrate"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.calibrate">[docs]</a>    <span class="k">def</span> <span class="nf">calibrate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eye_to_clb</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">USE_DUMMY_PERIOD</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        :param list eye_to_clb:</span>
+<span class="sd">                                list of integer ( only right eye : [0]</span>
+<span class="sd">                                                  only left eye : [1]</span>
+<span class="sd">                                                  both eyes : [0, 1] )</span>
+
+<span class="sd">        :param bool USE_DUMMY_PERIOD: True if you want to discard the data in transition of gaze.</span>
+
+
+<span class="sd">        Select eyes to calibrate (monocular, binocular)</span>
+<span class="sd">        It starts with beep sound</span>
+<span class="sd">        Then gaze the position with predefined reorder ::</span>
+
+<span class="sd">            Left top -&gt; Right top -&gt; Right bottom -&gt; Left bottom -&gt; Center (if needed)</span>
+
+<span class="sd">            1 ━━━━━━━━━━━━━&gt;&gt;&gt;━━━━━━━━━━━━━ 2</span>
+<span class="sd">            │                               │</span>
+<span class="sd">            │                               │</span>
+<span class="sd">            ↑                               ↓</span>
+<span class="sd">            ↑               5               ↓</span>
+<span class="sd">            ↑          ↗                   ↓</span>
+<span class="sd">            │      ↗                       │</span>
+<span class="sd">            │  ↗                           │</span>
+<span class="sd">            4 ━━━━━━━━━━━━━&lt;&lt;&lt;━━━━━━━━━━━━━ 5</span>
+
+
+<span class="sd">        You might hear &quot;beep&quot; sound for each stage.</span>
+<span class="sd">        After collecting data, pyPupil clusters the datum and finds the average position of each gaze.</span>
+<span class="sd">        Then it applies Affine transform with fixed point.</span>
+<span class="sd">        Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)</span>
+
+
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">sub_socket</span><span class="p">,</span> <span class="n">time0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_connection</span><span class="p">()</span>
+
+        <span class="c1"># Coordinate transformation # second</span>
+        <span class="n">max_num_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_calibrate</span> <span class="o">*</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">frequency</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cal_points</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">eye_to_clb</span><span class="p">)</span>
+        <span class="n">data_calibration</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">max_num_points</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span>
+
+        <span class="c1"># Initialization</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">global_idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">])]</span> <span class="c1"># data for left and right eye</span>
+        <span class="n">indices_eye_position_change</span> <span class="o">=</span> <span class="p">[[],[]]</span>
+
+        <span class="c1"># Data collecting</span>
+        <span class="k">while</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_calibrate</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cal_points</span> <span class="p">:</span>
+            <span class="n">topic</span><span class="p">,</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">sub_socket</span><span class="o">.</span><span class="n">recv_multipart</span><span class="p">()</span>
+            <span class="n">pupil_position</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;norm_pos&#39;</span><span class="p">]</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">time0</span>
+            <span class="n">conf</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;confidence&#39;</span><span class="p">]</span>
+            <span class="n">left_eye</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">topic</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">idx_left_eye</span><span class="p">])</span>
+
+            <span class="n">new_position</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span> <span class="n">t</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_calibrate</span> <span class="p">)</span>
+            <span class="k">if</span> <span class="n">new_position</span> <span class="o">&gt;</span> <span class="n">position</span> <span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_beep</span><span class="p">()</span> <span class="c1"># change gaze position with beep sound</span>
+
+                <span class="n">position</span> <span class="o">=</span> <span class="n">new_position</span> <span class="c1"># update position</span>
+                <span class="k">if</span> <span class="n">position</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cal_points</span> <span class="p">:</span>
+                    <span class="k">break</span>
+
+                <span class="k">for</span> <span class="n">eye</span> <span class="ow">in</span> <span class="n">eye_to_clb</span><span class="p">:</span>
+                    <span class="n">indices_eye_position_change</span><span class="p">[</span><span class="n">eye</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">eye</span><span class="p">]))</span>
+                <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># initialize index</span>
+
+            <span class="c1"># START - Dummy processing...</span>
+            <span class="n">t_from_new_position</span> <span class="o">=</span> <span class="n">t</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_calibrate</span> <span class="o">*</span> <span class="n">new_position</span>
+
+            <span class="k">if</span> <span class="n">USE_DUMMY_PERIOD</span> <span class="ow">and</span> <span class="n">t_from_new_position</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_period</span><span class="p">:</span>
+                <span class="c1"># TODO : discard data</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> at </span><span class="si">%.3f</span><span class="s2">s | pupil position : (</span><span class="si">%.3f</span><span class="s2">,</span><span class="si">%.3f</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; ** Will be treated as dummy **&quot;</span><span class="p">)</span>
+                <span class="k">pass</span>
+
+            <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># END - Dummy processing</span>
+
+                <span class="c1"># START - Confidence test</span>
+                <span class="k">if</span> <span class="n">conf</span> <span class="o">&lt;</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">conf_th_calib</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Deleted because of low confidence&quot;</span><span class="p">,</span> <span class="n">conf</span><span class="p">)</span>
+                    <span class="k">continue</span>
+
+
+                <span class="c1"># END - Confidence test</span>
+
+                <span class="n">data_calibration</span><span class="p">[</span><span class="n">global_idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">left_eye</span><span class="p">]</span> <span class="c1"># for matlab</span>
+                <span class="n">X</span><span class="p">[</span><span class="n">left_eye</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">left_eye</span><span class="p">],</span> <span class="p">[[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">]],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="c1"># for later data processing</span>
+
+                <span class="n">index</span> <span class="o">=</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">global_idx</span> <span class="o">=</span> <span class="n">global_idx</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> at </span><span class="si">%.3f</span><span class="s2">s | pupil position : (</span><span class="si">%.3f</span><span class="s2">,</span><span class="si">%.3f</span><span class="s2">), conf:</span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">conf</span><span class="p">))</span>
+
+        <span class="n">sub_socket</span><span class="o">.</span><span class="n">disconnect</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;tcp://</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">Pupil</span><span class="o">.</span><span class="n">addr_localhost</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_port</span><span class="p">))</span>
+
+
+        <span class="n">from_points</span> <span class="o">=</span> <span class="p">[[],</span> <span class="p">[]]</span>
+
+        <span class="c1"># postprocessing eye by eye</span>
+        <span class="k">for</span> <span class="n">eye</span> <span class="ow">in</span> <span class="n">eye_to_clb</span><span class="p">:</span>
+            <span class="c1"># (1) get points via k-mean clustering</span>
+            <span class="n">cluster</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cal_points</span><span class="p">,</span> <span class="n">random_state</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">eye</span><span class="p">])</span>
+            <span class="c1"># TODO : plot matplot will be convenient</span>
+
+            <span class="c1"># (2) index(label) lookup table</span>
+            <span class="n">lut</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_idx_lut</span><span class="p">(</span><span class="n">cluster</span><span class="o">.</span><span class="n">labels_</span><span class="p">,</span> <span class="n">indices_eye_position_change</span><span class="p">[</span><span class="n">eye</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;lookup table : &quot;</span><span class="p">,</span> <span class="n">lut</span><span class="p">)</span>
+
+            <span class="c1"># (3) get centers from cluster and reorder</span>
+            <span class="n">from_points</span><span class="p">[</span><span class="n">eye</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span> <span class="n">cluster</span><span class="o">.</span><span class="n">cluster_centers_</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">lut</span> <span class="p">]</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;clustered point : &quot;</span><span class="p">,</span> <span class="n">from_points</span><span class="p">[</span><span class="n">eye</span><span class="p">])</span>
+
+            <span class="c1"># (4) affine fitting (calibration)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">[</span><span class="n">eye</span><span class="p">]</span> <span class="o">=</span> <span class="n">Affine_Fit</span><span class="p">(</span><span class="n">from_points</span><span class="p">[</span><span class="n">eye</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_points</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">[</span><span class="n">eye</span><span class="p">]</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not clustered well, Try again&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Affine Transform is &quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">[</span><span class="n">eye</span><span class="p">]</span><span class="o">.</span><span class="n">To_Str</span><span class="p">())</span>
+
+
+        <span class="c1"># save data into .mat format</span>
+        <span class="n">current_time</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%y%m</span><span class="si">%d</span><span class="s1">_%H%M%S&#39;</span><span class="p">))</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="s1">&#39;eye_track_before_calib_data_&#39;</span> <span class="o">+</span> <span class="n">current_time</span> <span class="o">+</span> <span class="s1">&#39;.mat&#39;</span> <span class="c1"># file name ex : eye_track_data_180101_120847.mat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_file</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">data_calibration</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_file</span><span class="p">(</span><span class="s1">&#39;eye_track_before_calib_data_latest.mat&#39;</span><span class="p">,</span> <span class="n">data_calibration</span><span class="p">)</span>
+
+        <span class="c1"># TEMP : save after transform data for visualization</span>
+        <span class="n">data_refine</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">max_num_points</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cal_points</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">data_calibration</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">eye</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">data_calibration</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">3</span><span class="p">])</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">[</span><span class="n">eye</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">raw_data</span> <span class="o">=</span> <span class="p">(</span><span class="n">data_calibration</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">data_calibration</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">[</span><span class="n">eye</span><span class="p">]</span><span class="o">.</span><span class="n">Transform</span><span class="p">(</span><span class="n">raw_data</span><span class="p">)</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">data_calibration</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">data_refine</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">eye</span><span class="p">]</span>
+
+        <span class="n">file_name</span> <span class="o">=</span> <span class="s1">&#39;eye_track_after_calib_data_&#39;</span> <span class="o">+</span> <span class="n">current_time</span> <span class="o">+</span> <span class="s1">&#39;.mat&#39;</span> <span class="c1"># file name ex : eye_track_data_180101_120847.mat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_file</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">data_refine</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_file</span><span class="p">(</span><span class="s1">&#39;eye_track_after_calib_data_latest.mat&#39;</span><span class="p">,</span> <span class="n">data_refine</span><span class="p">)</span></div>
+        <span class="c1"># TEMP END</span>
+
+
+<div class="viewcode-block" id="Pupil.get_calibration_frame"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.get_calibration_frame">[docs]</a>    <span class="k">def</span> <span class="nf">get_calibration_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_points</span></div>
+
+
+<div class="viewcode-block" id="Pupil.get_duration"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.get_duration">[docs]</a>    <span class="k">def</span> <span class="nf">get_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;calibration&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_calibrate</span>
+        <span class="k">elif</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;record&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_record</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Unbeseeming type&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mf">0.0</span></div>
+
+
+<div class="viewcode-block" id="Pupil.record"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.record">[docs]</a>    <span class="k">def</span> <span class="nf">record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">duration</span> <span class="o">=</span> <span class="mf">20.0</span><span class="p">,</span> <span class="n">synchronize</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        :param float duration: duration for Recording</span>
+<span class="sd">        :param bool synchonize: whether to synchronize data from both eye (average)</span>
+
+<span class="sd">        :returns: The 2D Array of recorded data</span>
+
+<span class="sd">        Procedure</span>
+<span class="sd">        -----------------</span>
+<span class="sd">        1. receive Pupil data from device</span>
+<span class="sd">        2. transfrom the pupil position to gaze new_position with Affine transform matrix with precaculated</span>
+<span class="sd">        3. (If syncronize option is selected)</span>
+<span class="sd">           Synchronize both eyes&#39; data with average.</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c1"># check whether calibrated and make connection</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span> <span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;You should calibrate before record.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">sub_socket</span><span class="p">,</span> <span class="n">time0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_connection</span><span class="p">()</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        self.sub_socket.connect(b&quot;tcp://%s:%s&quot; % (Pupil.addr_localhost.encode(&#39;utf-8&#39;), self.sub_port) )</span>
+
+<span class="sd">        # Find initial point of time.</span>
+<span class="sd">        topic, msg = self.sub_socket.recv_multipart()</span>
+<span class="sd">        pupil_position = loads(msg)</span>
+<span class="sd">        time0 = pupil_position[b&#39;timestamp&#39;]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># variable initialization</span>
+        <span class="n">max_num_points</span> <span class="o">=</span> <span class="n">duration</span> <span class="o">*</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">frequency</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">max_num_points</span><span class="p">,</span> <span class="mi">7</span><span class="p">])</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Recording starts with Beep sound</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beep</span><span class="p">()</span>
+        <span class="c1"># Data acquisition with synchonization (left eye and right eye)</span>
+        <span class="n">qs</span> <span class="o">=</span> <span class="p">[</span><span class="n">Queue</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="n">synchronize</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">max_num_points</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+            <span class="n">qs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Queue</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_synchronize</span><span class="p">(</span><span class="n">qs</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+
+        <span class="c1"># Data acquisition from Pupil-labs Eye tracker</span>
+        <span class="k">while</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
+            <span class="n">topic</span><span class="p">,</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">sub_socket</span><span class="o">.</span><span class="n">recv_multipart</span><span class="p">()</span>
+            <span class="n">pupil_position</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="n">conf</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;confidence&#39;</span><span class="p">]</span>
+            <span class="n">coord</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;norm_pos&#39;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">conf</span> <span class="o">&lt;</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">conf_th_record</span> <span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Deleted because of low confidence&quot;</span><span class="p">,</span> <span class="n">conf</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">left_eye</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">topic</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">idx_left_eye</span><span class="p">])</span> <span class="c1"># 1 : left, 0 : right</span>
+
+            <span class="c1"># get time and real coordinate with Affine Transform</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">[</span><span class="n">left_eye</span><span class="p">]</span><span class="o">.</span><span class="n">Transform</span><span class="p">(</span><span class="n">coord</span><span class="p">)</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">time0</span>
+
+            <span class="n">data</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">left_eye</span><span class="p">,</span> <span class="n">coord</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">coord</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">conf</span><span class="p">]</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+
+            <span class="c1"># Put queue due to synchronization</span>
+            <span class="k">if</span> <span class="n">synchronize</span><span class="p">:</span>
+                <span class="n">qs</span><span class="p">[</span><span class="n">left_eye</span><span class="p">]</span><span class="o">.</span><span class="n">put</span><span class="p">([</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> at </span><span class="si">%.3f</span><span class="s2">s | gaze position : (</span><span class="si">%.3f</span><span class="s2">,</span><span class="si">%.3f</span><span class="s2">), conf:</span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">conf</span><span class="p">))</span>
+
+        <span class="c1"># Recoring finishes with Beep sound</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beep</span><span class="p">()</span>
+        <span class="n">sub_socket</span><span class="o">.</span><span class="n">disconnect</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;tcp://</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">Pupil</span><span class="o">.</span><span class="n">addr_localhost</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_port</span><span class="p">))</span>
+
+        <span class="n">data_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;timestamp&#39;</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> \
+                     <span class="s1">&#39;x&#39;</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> \
+                     <span class="s1">&#39;y&#39;</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">)}</span>
+
+        <span class="k">if</span> <span class="n">synchronize</span><span class="p">:</span>
+            <span class="c1"># Send synchronization end signal</span>
+            <span class="n">qs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">qs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">q</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">q</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Thread finished..&quot;</span><span class="p">)</span>
+
+            <span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
+
+        <span class="c1"># Get raw data : ** Will be deprecated **</span>
+        <span class="n">data_raw</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">data_raw</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">data_raw</span><span class="p">[</span><span class="s1">&#39;x_transformed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">data_raw</span><span class="p">[</span><span class="s1">&#39;y_transformed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="n">data_raw</span><span class="p">[</span><span class="s1">&#39;left_eye&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="n">data_raw</span><span class="p">[</span><span class="s1">&#39;x_raw&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">4</span><span class="p">]</span>
+        <span class="n">data_raw</span><span class="p">[</span><span class="s1">&#39;y_raw&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">5</span><span class="p">]</span>
+        <span class="n">data_raw</span><span class="p">[</span><span class="s1">&#39;conf&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">6</span><span class="p">]</span>
+
+        <span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;raw&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_raw</span>
+
+        <span class="k">return</span> <span class="n">data_dict</span></div>
+
+
+<div class="viewcode-block" id="Pupil.set_calibration_frame"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.set_calibration_frame">[docs]</a>    <span class="k">def</span> <span class="nf">set_calibration_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_points</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        :param list new_points: list of points to calibrate</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c1"># TODO : check whether new_points&#39;s type is numpy 2d array</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">to_points</span> <span class="o">=</span> <span class="n">new_points</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_cal_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Pupil.set_duration"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.set_duration">[docs]</a>    <span class="k">def</span> <span class="nf">set_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">duration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param string type: calibration or record</span>
+<span class="sd">        :param float duration: duration for calibration or record</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;calibration&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">duration_calibrate</span> <span class="o">=</span> <span class="n">duration</span>
+        <span class="k">elif</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;record&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">duration_record</span> <span class="o">=</span> <span class="n">duration</span></div>
+
+
+<div class="viewcode-block" id="Pupil.save_data_dict"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.save_data_dict">[docs]</a>    <span class="k">def</span> <span class="nf">save_data_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">data_dict</span><span class="p">,</span> <span class="n">object_name</span> <span class="o">=</span> <span class="s1">&#39;data&#39;</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        :param string file_name: name of file</span>
+<span class="sd">        :param dict data_dict: dictionary that is from pypupil.</span>
+<span class="sd">        :param string object_name: name of data in MATLAB.</span>
+
+<span class="sd">        save data in .mat format with file name,</span>
+<span class="sd">        You can put data as dictionary type, which is given py pypupil.</span>
+<span class="sd">        This method will automatically convert the data into 2d array with given column order.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_dict</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">],</span> \
+                                    <span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> \
+                                    <span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="n">file_dir</span> <span class="o">=</span> <span class="s1">&#39;data/&#39;</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">file_dir</span> <span class="o">+</span> <span class="n">file_name</span>
+        <span class="n">scipy</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">savemat</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">mdict</span> <span class="o">=</span> <span class="p">{</span> <span class="n">object_name</span> <span class="p">:</span> <span class="n">data</span> <span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="Pupil.throw"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.throw">[docs]</a>    <span class="k">def</span> <span class="nf">throw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">duration</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        :param float duration : duration</span>
+
+<span class="sd">        Get processed data in real time</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c1"># check whether calibrated and make connection</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span> <span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;You should calibrate before record.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">sub_socket</span><span class="p">,</span> <span class="n">time0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_connection</span><span class="p">()</span>
+
+        <span class="c1"># Variable initialization</span>
+        <span class="n">max_num_points</span> <span class="o">=</span> <span class="n">duration</span> <span class="o">*</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">frequency</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beep</span><span class="p">()</span>
+
+        <span class="c1"># Get raw data : ** Will be deprecated **</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">max_num_points</span><span class="p">,</span> <span class="mi">7</span><span class="p">])</span>
+
+        <span class="c1"># Data acquisition with synchonization (left eye and right eye)</span>
+        <span class="n">qs</span> <span class="o">=</span> <span class="p">[</span><span class="n">Queue</span><span class="p">(),</span> <span class="n">Queue</span><span class="p">()]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_synchronize</span><span class="p">(</span><span class="n">qs</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+
+        <span class="c1"># Data acquisition from Pupil-labs Eye tracker</span>
+        <span class="k">while</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
+            <span class="n">topic</span><span class="p">,</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">sub_socket</span><span class="o">.</span><span class="n">recv_multipart</span><span class="p">()</span>
+            <span class="n">pupil_position</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="n">conf</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;confidence&#39;</span><span class="p">]</span>
+            <span class="n">coord</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;norm_pos&#39;</span><span class="p">]</span>
+
+            <span class="c1"># discard low-confidence data</span>
+            <span class="k">if</span> <span class="n">conf</span> <span class="o">&lt;</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">conf_th_record</span> <span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Deleted because of low confidence&quot;</span><span class="p">,</span> <span class="n">conf</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">left_eye</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">topic</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">idx_left_eye</span><span class="p">])</span> <span class="c1"># 1 : left, 0 : right</span>
+
+            <span class="c1"># get time and real coordinate with Affine Transform</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">time0</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">[</span><span class="n">left_eye</span><span class="p">]</span><span class="o">.</span><span class="n">Transform</span><span class="p">(</span><span class="n">coord</span><span class="p">)</span>
+
+            <span class="c1"># Put queue due to synchronization</span>
+            <span class="n">qs</span><span class="p">[</span><span class="n">left_eye</span><span class="p">]</span><span class="o">.</span><span class="n">put</span><span class="p">([</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> at </span><span class="si">%.3f</span><span class="s2">s | gaze position : (</span><span class="si">%.3f</span><span class="s2">,</span><span class="si">%.3f</span><span class="s2">), conf:</span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">conf</span><span class="p">))</span>
+
+        <span class="c1"># Recoring finishes with Beep sound</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beep</span><span class="p">()</span>
+        <span class="n">sub_socket</span><span class="o">.</span><span class="n">disconnect</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;tcp://</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">Pupil</span><span class="o">.</span><span class="n">addr_localhost</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_port</span><span class="p">))</span>
+
+        <span class="c1"># Send synchronization END signal</span>
+        <span class="n">qs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">qs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">q</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">q</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Thread finished..&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Throwing data finished..&quot;</span><span class="p">)</span></div>
+
+
+
+    <span class="k">def</span> <span class="nf">_synchronize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qs</span><span class="p">,</span> <span class="n">index_sync</span><span class="p">,</span> <span class="n">t0</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">prev_point</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        start synchronization of asynchronous eye data from both eyes</span>
+<span class="sd">        It produces synchonized data every (1/120Hz) second using queue.</span>
+
+<span class="sd">        Arguments :</span>
+<span class="sd">            qs : list of queues of points received by pupil</span>
+<span class="sd">                qs[0] : queue of datum from right eye</span>
+<span class="sd">                qs[1] : queue of datum from left eye</span>
+
+<span class="sd">            index_sync : it increases as this function called</span>
+
+<span class="sd">            t0 : reference time from syncronization start</span>
+
+<span class="sd">            prev_point : if one of both eye data does not arrive, We use the data which came just before.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="kc">None</span> <span class="ow">in</span> <span class="n">qs</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Thread finishing..&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1">#assert len(qs) == 2</span>
+        <span class="n">t_sync</span> <span class="o">=</span> <span class="n">index_sync</span> <span class="o">*</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">period</span> <span class="c1"># time to synchronize</span>
+        <span class="n">t0_process</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="c1"># Variable initialization</span>
+        <span class="n">qsizes</span> <span class="o">=</span> <span class="p">[</span> <span class="n">q</span><span class="o">.</span><span class="n">qsize</span><span class="p">()</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">qs</span> <span class="p">]</span>
+        <span class="n">qsize_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">qsizes</span><span class="p">)</span>
+        <span class="n">qsize_diff</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">qsizes</span><span class="p">)</span> <span class="o">-</span> <span class="n">qsize_min</span>
+        <span class="n">idx_qsize_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">qsizes</span><span class="p">)</span>
+        <span class="n">t_diff_max</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">qsize_min</span>
+
+        <span class="c1"># Pop from queue and get average</span>
+        <span class="k">if</span> <span class="n">qsize_min</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+            <span class="k">if</span> <span class="n">prev_point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">prev_point</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">qsize_min</span><span class="p">):</span>
+                <span class="n">ts</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">qs</span><span class="p">:</span>
+                    <span class="n">top</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">get_nowait</span><span class="p">()</span>
+                    <span class="n">ts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">top</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="n">top</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span> <span class="o">+</span> <span class="n">top</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">y</span> <span class="o">+</span> <span class="n">top</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">ts</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">t_diff_max</span><span class="p">:</span>
+                    <span class="n">t_diff_max</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">ts</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+            <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">t</span> <span class="o">/</span> <span class="n">n</span><span class="p">,</span> <span class="n">x</span> <span class="o">/</span> <span class="n">n</span><span class="p">,</span> <span class="n">y</span> <span class="o">/</span> <span class="n">n</span>
+            <span class="n">prev_point</span> <span class="o">=</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span>
+
+            <span class="c1"># Flush if t_diff_max &gt; 8.3 ms</span>
+            <span class="k">if</span> <span class="n">t_diff_max</span> <span class="o">&gt;</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">period</span> <span class="p">:</span>
+                <span class="n">q</span> <span class="o">=</span> <span class="n">qs</span><span class="p">[</span><span class="n">idx_qsize_max</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">qsize_diff</span><span class="p">):</span>
+                    <span class="n">q</span><span class="o">.</span><span class="n">get_nowait</span><span class="p">()</span>
+
+        <span class="n">t_real</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+        <span class="n">t_process</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0_process</span>
+        <span class="n">t_delay</span> <span class="o">=</span> <span class="n">t_sync</span> <span class="o">-</span> <span class="n">t_real</span>
+
+        <span class="c1"># Wait(synchronize) and restart thread</span>
+        <span class="n">thread_sync</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Timer</span><span class="p">(</span><span class="n">t_delay</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_synchronize</span><span class="p">,</span> <span class="p">(</span><span class="n">qs</span><span class="p">,</span> <span class="n">index_sync</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">t0</span><span class="p">,</span> <span class="n">prev_point</span><span class="p">))</span>
+        <span class="n">thread_sync</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">thread_sync</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">index_sync</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">t_real</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">]</span> <span class="c1"># for matlab</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;t_sync : </span><span class="si">%.3f</span><span class="s2">, t_real : </span><span class="si">%.3f</span><span class="s2"> | gaze position : (</span><span class="si">%.3f</span><span class="s2">,</span><span class="si">%.3f</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t_sync</span><span class="p">,</span> <span class="n">t_real</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">)</span>
+
+        <span class="n">t</span> <span class="o">=</span> <span class="n">t_real</span>
+        <span class="c1">############################# THROW DATA HERE #############################\</span>
+        <span class="c1"># You can handle processed coordinate with timestamp here in real time</span>
+        <span class="c1"># ex.) your_class.your_method(t,x,y)</span>
+
+        <span class="c1">###########################################################################</span>
+
+
+    <span class="k">def</span> <span class="nf">_plot_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">]</span>
+
+        <span class="c1"># Change the line plot below to a scatter plot</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="c1"># Show plot</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+
+    <span class="k">def</span> <span class="nf">_save_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">object_name</span> <span class="o">=</span> <span class="s1">&#39;data&#39;</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        save data in .mat format with file_name</span>
+<span class="sd">        You can change the directory which the file will be saved.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">file_dir</span> <span class="o">=</span> <span class="s1">&#39;data/&#39;</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">file_dir</span> <span class="o">+</span> <span class="n">file_name</span>
+        <span class="n">scipy</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">savemat</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">mdict</span> <span class="o">=</span> <span class="p">{</span> <span class="n">object_name</span> <span class="p">:</span> <span class="n">data</span> <span class="p">})</span>
+
+
+    <span class="k">def</span> <span class="nf">_idx_lut</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">index_change</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        :param list labels: list of labels</span>
+<span class="sd">        :param list index_change : list of indices that change gaze position</span>
+
+<span class="sd">        :returns: Lookup Table of idx of n_clusters</span>
+
+<span class="sd">        This is necessary because K-mean clustering does not guarantee</span>
+<span class="sd">        the order of centers which I intended.</span>
+
+<span class="sd">        This method get mode of labels in subarray then make lookuptable.</span>
+
+<span class="sd">        get mode of labels in subarray</span>
+<span class="sd">        and make lookup Table</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">num_points</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">index_change</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">spl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">index_change</span><span class="p">)</span>
+        <span class="n">LUT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_points</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="nb">int</span><span class="p">)</span>
+
+        <span class="c1"># Find mode value</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_points</span><span class="p">):</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">spl</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">mode_index</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">mode</span><span class="p">(</span><span class="n">points</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">LUT</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">mode_index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">LUT</span>
+
+
+    <span class="k">def</span> <span class="nf">_beep</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\a</span><span class="s1">&#39;</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">_start_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beep</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;tcp://</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span><span class="p">(</span><span class="n">Pupil</span><span class="o">.</span><span class="n">addr_localhost</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_port</span><span class="p">))</span>
+        <span class="n">topic</span><span class="p">,</span> <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span><span class="o">.</span><span class="n">recv_multipart</span><span class="p">()</span>
+
+        <span class="c1"># get data</span>
+        <span class="n">pupil_position</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span><span class="p">,</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Will be deprecated</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">synchronize</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Make matlab file with recorded data, raw data</span>
+<span class="sd">        Return nothing</span>
+
+<span class="sd">        Procedure :</span>
+<span class="sd">        1. receive Pupil data from device</span>
+<span class="sd">        2. Transfrom the pupil position to gaze new_position</span>
+<span class="sd">               With Affine transform matrix with precaculated</span>
+<span class="sd">        3(If syncronize option is selected).</span>
+<span class="sd">           Synchronize both eyes&#39; data with average.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="c1"># check whether calibrated and make connection</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span> <span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;You should calibrate before record.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;tcp://</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">Pupil</span><span class="o">.</span><span class="n">addr_localhost</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_port</span><span class="p">)</span> <span class="p">)</span>
+
+        <span class="c1"># Find initial point of time.</span>
+        <span class="n">topic</span><span class="p">,</span> <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span><span class="o">.</span><span class="n">recv_multipart</span><span class="p">()</span>
+        <span class="n">pupil_position</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">time0</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span>
+
+        <span class="c1"># Make null arrays to fill.</span>
+        <span class="n">max_num_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_record</span> <span class="o">*</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">frequency</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">max_num_points</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span> <span class="c1"># Will be deprecated</span>
+
+        <span class="c1"># variable initialization</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Recording starts with Beep sound</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beep</span><span class="p">()</span>
+
+        <span class="c1"># Data acquisition with synchonization (left eye and right eye)</span>
+        <span class="n">qs</span> <span class="o">=</span> <span class="p">[</span><span class="n">Queue</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="n">synchronize</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">max_num_points</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+            <span class="n">qs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Queue</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_synchronize</span><span class="p">(</span><span class="n">qs</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+
+        <span class="c1"># Data acquisition from Pupil-labs Eye tracker</span>
+        <span class="k">while</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_record</span><span class="p">:</span>
+            <span class="n">topic</span><span class="p">,</span> <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span><span class="o">.</span><span class="n">recv_multipart</span><span class="p">()</span>
+
+            <span class="n">pupil_position</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="n">coord</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;norm_pos&#39;</span><span class="p">]</span>
+            <span class="n">conf</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;confidence&#39;</span><span class="p">]</span>
+
+
+            <span class="k">if</span> <span class="n">conf</span> <span class="o">&lt;</span> <span class="n">Pupil</span><span class="o">.</span><span class="n">conf_th_record</span> <span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Deleted because of low confidence&quot;</span><span class="p">,</span> <span class="n">conf</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+
+            <span class="n">left_eye</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">topic</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">idx_left_eye</span><span class="p">])</span> <span class="c1"># 1 : left, 0 : right</span>
+
+            <span class="c1"># get real coordinate with Affine Transform</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Affine_Transforms</span><span class="p">[</span><span class="n">left_eye</span><span class="p">]</span><span class="o">.</span><span class="n">Transform</span><span class="p">(</span><span class="n">coord</span><span class="p">)</span>
+            <span class="c1"># get time</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">pupil_position</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">time0</span>
+
+            <span class="n">data</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">left_eye</span><span class="p">,</span> <span class="n">coord</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">coord</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+
+            <span class="c1"># Put queue due to synchronization</span>
+            <span class="k">if</span> <span class="n">synchronize</span><span class="p">:</span>
+                <span class="n">qs</span><span class="p">[</span><span class="n">left_eye</span><span class="p">]</span><span class="o">.</span><span class="n">put</span><span class="p">([</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> at </span><span class="si">%.3f</span><span class="s2">s | gaze position : (</span><span class="si">%.3f</span><span class="s2">,</span><span class="si">%.3f</span><span class="s2">), conf:</span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">conf</span><span class="p">))</span>
+
+        <span class="c1"># Recoring finishes with Beep sound</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beep</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub_socket</span><span class="o">.</span><span class="n">disconnect</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;tcp://</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">Pupil</span><span class="o">.</span><span class="n">addr_localhost</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_port</span><span class="p">))</span>
+
+
+        <span class="n">current_time</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%y%m</span><span class="si">%d</span><span class="s1">_%H%M%S&#39;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">synchronize</span><span class="p">:</span>
+            <span class="c1"># send synchronization end signal</span>
+            <span class="n">qs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Thread finished..&quot;</span><span class="p">)</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="s1">&#39;eye_track_gaze_processed_data_&#39;</span> <span class="o">+</span> <span class="n">current_time</span> <span class="o">+</span> <span class="s1">&#39;.mat&#39;</span> <span class="c1"># file name ex : eye_track_data_180101_120847.mat</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_save_file</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_save_file</span><span class="p">(</span><span class="s1">&#39;eye_track_gaze_processed_data_latest.mat&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;processed data saving...&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Convert and save MATLAB file</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="s1">&#39;eye_track_gaze_raw_data_&#39;</span> <span class="o">+</span> <span class="n">current_time</span> <span class="o">+</span> <span class="s1">&#39;.mat&#39;</span> <span class="c1"># file name ex : eye_track_data_180101_120847.mat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_file</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_file</span><span class="p">(</span><span class="s1">&#39;eye_track_gaze_raw_data_latest.mat&#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;raw data saving...&quot;</span><span class="p">)</span></div>
+
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">Open-source lib usage</span>
+<span class="sd">---------------------</span>
+<span class="sd">scipy, sklearn, numpy, zmq, msgpack, affine_transformer</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Suyeon Choi.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'0.9',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

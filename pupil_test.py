@@ -4,6 +4,7 @@
 #
 # Eye tracker controller module based on the pupil_basic.py by Seokil, Moon
 #################################################################################
+"""
 import zmq
 from msgpack import loads
 import threading
@@ -80,3 +81,4 @@ file_name = file_dir + 'eye_track_data_' + current_time + '.mat' # file name ex 
 scipy.io.savemat(file_name, mdict = {'data' : data})
 
 sub_socket.disconnect(b"tcp://%s:%s" % (__ADDR__.encode('utf-8'), sub_port))
+"""

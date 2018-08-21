@@ -24,7 +24,7 @@ while True:
                     '\nInput command : ')
     print('\n')
 
-    
+
     if command == "c" or command == "calibrate":
         eyes = []
         cmd_eye = input('=' * 60 +

@@ -1,4 +1,12 @@
-% best data is 172530
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DATA FORMAT
+%
+% data
+%    TIME   |   x-axis coord   |   y-axis coord   |   left eye   |   conf
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+width = 60;
+height = 40;
 close all;
 
 load('C:\Users\User\Desktop\pypupil\data\eye_track_before_calib_data_latest.mat')
@@ -18,8 +26,8 @@ y = data(:, 3);
 c = data(:, 4);
 subplot(2,1,2);
 scatter(x, y, 10, c, 'filled')
-xlim ([-30 30])
-ylim ([-20 20])
+xlim ([-width/2 width/2])
+ylim ([-height/2 height/2])
 title('After transform (Both eyes)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
 
 %%%% Before Average
@@ -47,17 +55,15 @@ fig2 = figure;
 subplot(2,1,1);
 scatter(x_left, y_left, 10, 'y', 'filled')
 axis tight;
-xlim ([-30 30])
-ylim ([-20 20])
+xlim ([-width/2 width/2])
+ylim ([-height/2 height/2])
 title('Own gaze data (Left eye)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
 
 subplot(2,1,2);
 scatter(x_right, y_right, 20, 'b', 'filled')
-xlim ([-30 30])
-ylim ([-20 20])
+xlim ([-width/2 width/2])
+ylim ([-height/2 height/2])
 title('Own gaze data (Right eye)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
-set(fig1,'Position',[0 0 500 1000])
-set(fig2,'Position',[500 0 500 1000])
 
 
 
@@ -72,7 +78,10 @@ y = data(:, 3);
 
 fig3 = figure;
 scatter(x, y, 10, [0 0 0], 'filled')
-xlim ([-30 30])
-ylim ([-20 20])
+xlim ([-width/2 width/2])
+ylim ([-height/2 height/2])
 title('After Synchonization (Both eyes)'); xlabel('[relative unit]'); ylabel('[relative unit]'); 
-set(fig3,'Position',[1000 250 540 320])
+
+set(fig1,'Position',[0, 0, 8*width, 16*height])
+set(fig2,'Position',[8*width, 0, 8*width, 16*height])
+set(fig3,'Position',[16*width, 250, 8*width 8*height])

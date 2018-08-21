@@ -1,0 +1,7 @@
+pypupil.synchonizer module
+==========================
+
+.. automodule:: pypupil.synchonizer
+    :members:
+    :undoc-members:
+    :show-inheritance:
