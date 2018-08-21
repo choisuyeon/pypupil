@@ -7,6 +7,7 @@ Pypupil's documentation
 ===================================
 Pupil-labs Eye tracker helper module in Python3
 
+Source code : `Github <https://github.com/choisuyeon/pypupil>`_ - not published yet.
 
 
 .. warning::

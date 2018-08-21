@@ -142,7 +142,7 @@
             
   <h1>Source code for pupil</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">.. author:: Suyeon Choi &lt;0310csy@hanmail.net&gt;</span>
+<span class="sd">.. author:: Suyeon Choi, Seoul National University &lt;0310csy@hanmail.net&gt;</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span> <span class="nn">threading</span>
@@ -242,7 +242,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="Pupil.calibrate"><a class="viewcode-back" href="../pupil.html#pupil.Pupil.calibrate">[docs]</a>    <span class="k">def</span> <span class="nf">calibrate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eye_to_clb</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">USE_DUMMY_PERIOD</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param list of integer eye_to_clb: select eyes list following rules below</span>
+<span class="sd">        :param list eye_to_clb: list of integer following rules below, if you want to calibrate</span>
 
 <span class="sd">                 - only right eye : [0]</span>
 <span class="sd">                 - only left eye : [1]</span>
@@ -265,7 +265,7 @@
 <span class="sd">                       ↗                   ↓</span>
 <span class="sd">                   ↗                       │</span>
 <span class="sd">               ↗                           │</span>
-<span class="sd">            4 ━━━━━━━━━━━━━&lt;&lt;&lt;━━━━━━━━━━━━━ 5</span>
+<span class="sd">            4 ━━━━━━━━━━━━━&lt;&lt;&lt;━━━━━━━━━━━━━ 3</span>
 
 
 <span class="sd">        You might hear &quot;beep&quot; sound for each stage.</span>
