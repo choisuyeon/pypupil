@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>pypupil module &mdash; pypupil 0.9 documentation</title>
+  <title>pypupil &mdash; pypupil 0.9 documentation</title>
   
 
   
@@ -78,7 +78,7 @@
             
             
               <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">pypupil</span></code> module</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">pypupil</span></code></a></li>
 </ul>
 
             
@@ -124,7 +124,7 @@
     
       <li><a href="index.html">Docs</a> &raquo;</li>
         
-      <li><code class="docutils literal notranslate"><span class="pre">pypupil</span></code> module</li>
+      <li><code class="docutils literal notranslate"><span class="pre">pypupil</span></code></li>
     
     
       <li class="wy-breadcrumbs-aside">
@@ -144,18 +144,32 @@
            <div itemprop="articleBody">
             
   <div class="section" id="module-pupil">
-<span id="pypupil-module"></span><h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">pypupil</span></code> module<a class="headerlink" href="#module-pupil" title="Permalink to this headline">¶</a></h1>
+<span id="pypupil"></span><h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">pypupil</span></code><a class="headerlink" href="#module-pupil" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="pupil.Pupil">
-<em class="property">class </em><code class="descclassname">pupil.</code><code class="descname">Pupil</code><span class="sig-paren">(</span><em>port_remote='50020'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pupil.html#Pupil"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pupil.Pupil" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pupil.</code><code class="descname">Pupil</code><span class="sig-paren">(</span><em>port_remote='50020'</em>, <em>topic=b'pupil.'</em>, <em>duration_calibrate=2</em>, <em>duration_record=5</em>, <em>duration_dummy=1</em>, <em>screen_width=54.0</em>, <em>screen_height=32.0</em>, <em>conf_th_calib=0.01</em>, <em>conf_th_record=0.2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pupil.html#Pupil"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pupil.Pupil" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Pupil-labs Eye tracker controller module in Python3</p>
-<p>July 31, 2018 Suyeon Choi</p>
-<dl class="attribute">
-<dt id="pupil.Pupil.addr_localhost">
-<code class="descname">addr_localhost</code><em class="property"> = '127.0.0.1'</em><a class="headerlink" href="#pupil.Pupil.addr_localhost" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>port_remote</strong> (<em>string</em>) – port number of Pupil remote</li>
+<li><strong>topic</strong> (<em>string</em>) – data type to receive (must be b’pupil.’ or b’gaze.’)</li>
+<li><strong>duration_calibrate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – duration of calibration</li>
+<li><strong>duration_calibrate</strong> – duration of calibration</li>
+<li><strong>duration_record</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – duration of recording</li>
+<li><strong>duration_dummy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – duration of dummy</li>
+<li><strong>screen_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – width of gaze plane</li>
+<li><strong>screen_height</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – height of gaze plane</li>
+<li><strong>conf_th_calib</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – threshold value of confidence in calibration, data with confidence below the threshold will be discarded.</li>
+<li><strong>conf_th_record</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – threshold value of confidence in recording, data with confidence below the threshold will be discarded.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 <dl class="method">
 <dt id="pupil.Pupil.calibrate">
 <code class="descname">calibrate</code><span class="sig-paren">(</span><em>eye_to_clb=[0, 1], USE_DUMMY_PERIOD=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pupil.html#Pupil.calibrate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pupil.Pupil.calibrate" title="Permalink to this definition">¶</a></dt>
@@ -164,11 +178,12 @@
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>eye_to_clb</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.7)"><em>list</em></a>) – <dl class="docutils">
-<dt>list of integer ( only right eye <span class="classifier-delimiter">:</span> <span class="classifier">[0]</span></dt>
-<dd>only left eye : [1]
-both eyes : [0, 1] )</dd>
-</dl>
+<li><strong>of integer eye_to_clb</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.7)"><em>list</em></a>) – <p>select eyes list following rules below</p>
+<ul>
+<li>only right eye : [0]</li>
+<li>only left eye : [1]</li>
+<li>both eyes : [0, 1]</li>
+</ul>
 </li>
 <li><strong>USE_DUMMY_PERIOD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – True if you want to discard the data in transition of gaze.</li>
 </ul>
@@ -182,13 +197,13 @@ Then gaze the position with predefined reorder</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Left top -&gt; Right top -&gt; Right bottom -&gt; Left bottom -&gt; Center (if needed)
 
 1 ━━━━━━━━━━━━━&gt;&gt;&gt;━━━━━━━━━━━━━ 2
-│                               │
-│                               │
-↑                               ↓
-↑               5               ↓
-↑          ↗                   ↓
-│      ↗                       │
-│  ↗                           │
+                                │
+                                │
+                                ↓
+                5               ↓
+           ↗                   ↓
+       ↗                       │
+   ↗                           │
 4 ━━━━━━━━━━━━━&lt;&lt;&lt;━━━━━━━━━━━━━ 5
 </pre></div>
 </div>
@@ -197,11 +212,6 @@ After collecting data, pyPupil clusters the datum and finds the average position
 Then it applies Affine transform with fixed point.
 Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)</p>
 </dd></dl>
-
-<dl class="attribute">
-<dt id="pupil.Pupil.frequency">
-<code class="descname">frequency</code><em class="property"> = 120</em><a class="headerlink" href="#pupil.Pupil.frequency" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 <dl class="method">
 <dt id="pupil.Pupil.get_calibration_frame">
@@ -218,42 +228,53 @@ Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)</p
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>type</strong> (<em>string</em>) – ‘calibration’ or ‘record’</td>
 </tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">duration</td>
+</tr>
 </tbody>
 </table>
-<p>returns: duration</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="pupil.Pupil.period">
-<code class="descname">period</code><em class="property"> = 0.008333333333333333</em><a class="headerlink" href="#pupil.Pupil.period" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="pupil.Pupil.port_pupil_remote">
-<code class="descname">port_pupil_remote</code><em class="property"> = '50020'</em><a class="headerlink" href="#pupil.Pupil.port_pupil_remote" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dl class="method">
+<dt id="pupil.Pupil.get_pupil_remote_port">
+<code class="descname">get_pupil_remote_port</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pupil.html#Pupil.get_pupil_remote_port"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pupil.Pupil.get_pupil_remote_port" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">current port number communcating Pupil Capture</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="pupil.Pupil.record">
-<code class="descname">record</code><span class="sig-paren">(</span><em>duration=20.0</em>, <em>synchronize=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pupil.html#Pupil.record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pupil.Pupil.record" title="Permalink to this definition">¶</a></dt>
+<code class="descname">record</code><span class="sig-paren">(</span><em>synchronize=False</em>, <em>duration=20.0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pupil.html#Pupil.record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pupil.Pupil.record" title="Permalink to this definition">¶</a></dt>
 <dd><table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – duration for Recording</li>
 <li><strong>synchonize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – whether to synchronize data from both eye (average)</li>
+<li><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – duration for Recording</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The 2D Array of recorded data</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><p>dictionary of recorded data</p>
+<ul class="simple">
+<li>timestamp - timestamps (processed, synchronized)</li>
+<li>x - x coordinate (processed, synchronized)</li>
+<li>y - y coordinate (processed, synchronized)</li>
+<li>raw - dictionary of raw data</li>
+</ul>
+</p>
 </td>
 </tr>
 </tbody>
 </table>
 <ol class="arabic simple">
 <li>receive Pupil data from device</li>
-<li>transfrom the pupil position to gaze new_position with Affine transform matrix with precaculated</li>
+<li>transfrom the pupil position to gaze new_position with Affine transform matrix which is precaculated</li>
 <li>(If syncronize option is selected)
 Synchronize both eyes’ data with average.</li>
 </ol>
@@ -311,10 +332,30 @@ This method will automatically convert the data into 2d array with given column 
 </dd></dl>
 
 <dl class="method">
+<dt id="pupil.Pupil.set_pupil_remote_port">
+<code class="descname">set_pupil_remote_port</code><span class="sig-paren">(</span><em>port_num</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pupil.html#Pupil.set_pupil_remote_port"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pupil.Pupil.set_pupil_remote_port" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>port_num</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – port number on Pupil remote tab</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
 <dt id="pupil.Pupil.throw">
 <code class="descname">throw</code><span class="sig-paren">(</span><em>duration=1000</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pupil.html#Pupil.throw"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pupil.Pupil.throw" title="Permalink to this definition">¶</a></dt>
-<dd><p>:param float duration : duration</p>
-<p>Get processed data in real time</p>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – duration of throwing data</td>
+</tr>
+</tbody>
+</table>
+<p>Get processed data in real time via serial communication</p>
 </dd></dl>
 
 </dd></dl>

@@ -1,5 +1,5 @@
 """
-.. author:: Suyeon Choi <0310csy@hanmail.net>
+.. author:: Suyeon Choi, Seoul National University <0310csy@hanmail.net>
 """
 
 import threading
@@ -24,7 +24,7 @@ class Pupil:
 
         :param string port_remote: port number of Pupil remote
 
-        :param string topic: data type to receive (must be b'pupil.' b'gaze.')
+        :param string topic: data type to receive (must be b'pupil.' or b'gaze.')
 
         :param float duration_calibrate: duration of calibration
 
@@ -99,10 +99,11 @@ class Pupil:
     """
     def calibrate(self, eye_to_clb = [0, 1], USE_DUMMY_PERIOD = True):
         """
-        :param list eye_to_clb: list of integer
-                                                only right eye : [0]
-                                                only left eye : [1]
-                                                both eyes : [0, 1]
+        :param list eye_to_clb: list of integer following rules below, if you want to calibrate
+
+                 - only right eye : [0]
+                 - only left eye : [1]
+                 - both eyes : [0, 1]
 
         :param bool USE_DUMMY_PERIOD: True if you want to discard the data in transition of gaze.
 
@@ -256,7 +257,7 @@ class Pupil:
         """
         :param string type: 'calibration' or 'record'
 
-        returns: duration
+        :returns: duration
         """
         if type == 'calibration':
             return self.duration_calibrate
@@ -269,7 +270,7 @@ class Pupil:
 
     def get_pupil_remote_port(self):
         """
-        :returns current port number communcating Pupil Capture
+        :returns: current port number communcating Pupil Capture
         """
         return self.port_pupil_remote
 
@@ -279,7 +280,13 @@ class Pupil:
         :param bool synchonize: whether to synchronize data from both eye (average)
         :param float duration: duration for Recording
 
-        :returns: The 2D Array of recorded data
+        :returns: dictionary of recorded data
+
+
+            * timestamp - timestamps (processed, synchronized)
+            * x - x coordinate (processed, synchronized)
+            * y - y coordinate (processed, synchronized)
+            * raw - dictionary of raw data
 
         Procedure
         -----------------
