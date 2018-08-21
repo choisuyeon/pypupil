@@ -1,6 +1,5 @@
 """
 .. author:: Suyeon Choi <0310csy@hanmail.net>
-
 """
 
 import threading
@@ -23,31 +22,44 @@ class Pupil:
     """
         Pupil-labs Eye tracker controller module in Python3
 
-        July 31, 2018 Suyeon Choi
+        :param string port_remote: port number of Pupil remote
+
+        :param string topic: data type to receive (must be b'pupil.' b'gaze.')
+
+        :param float duration_calibrate: duration of calibration
+
+        :param float duration_calibrate: duration of calibration
+
+        :param float duration_record: duration of recording
+
+        :param float duration_dummy: duration of dummy
+
+        :param float screen_width: width of gaze plane
+
+        :param float screen_height: height of gaze plane
+
+        :param float conf_th_calib: threshold value of confidence in calibration, data with confidence below the threshold will be discarded.
+
+        :param float conf_th_record: threshold value of confidence in recording, data with confidence below the threshold will be discarded.
 
     """
 
-    addr_localhost = '127.0.0.1'
-    port_pupil_remote = '50020' # default value given by Pupil : 50020
+    _addr_localhost = '127.0.0.1' # default value given by Pupil : 50020
                                 # You should check Pupil remote tab when communication is not good.
-
-    frequency = 120 # Hz
-    period = 1 / frequency # second
-
+    _frequency = 120 # Hz
+    _period = 1 / _frequency # second
 
 
-
-
-
-
-    def __init__(self, port_remote = '50020'):
+    def __init__(self, port_remote = '50020', topic = b'pupil.', duration_calibrate = 2, duration_record = 5, \
+                       duration_dummy = 1, screen_width = 54.0, screen_height = 32.0, conf_th_calib = 0.01, \
+                       conf_th_record = 0.2 ):
         # 1. Connection to Server
         context = zmq.Context()
 
         # 1-1. Open a req port to talk to pupil
         req_socket = context.socket(zmq.REQ)
-        Pupil.port_pupil_remote = port_remote
-        req_socket.connect( "tcp://%s:%s" %(Pupil.addr_localhost, Pupil.port_pupil_remote) )
+        self.port_pupil_remote = port_remote
+        req_socket.connect( "tcp://%s:%s" %(Pupil._addr_localhost, self.port_pupil_remote) )
 
         # 1-2. Ask for the sub port
         req_socket.send( b'SUB_PORT' )
@@ -58,7 +70,7 @@ class Pupil:
 
         # You can select topic between "gaze" and "pupil"
         print("Automatically set to deal with pupil data. (not gaze)")
-        topic = b'pupil.'
+
         self.sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
         if topic == b'pupil.' :
             self.idx_left_eye = -2
@@ -67,27 +79,30 @@ class Pupil:
 
         self.Affine_Transforms = [None, None]
 
+        self.port_pupil_remote = port_remote
+        self.duration_calibrate = duration_calibrate # second
+        self.duration_record = duration_record # second
+        self.duration_dummy = duration_dummy # second
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        self.conf_th_calib = conf_th_calib
+        self.conf_th_record = conf_th_record
 
-
-        self.duration_calibrate = 6 # second
-        self.duration_record = 20 # second
-        self.dummy_period = 1 # second
-        self.screen_width = 54.0
-        self.screen_height = 32.0
         self.to_points = np.array([ [-self.screen_width/2, self.screen_height/2], [self.screen_width/2, self.screen_height/2], \
                                [self.screen_width/2, -self.screen_height/2], [-self.screen_width/2, -self.screen_height/2], [0.0, 0.0] ])
         self.num_cal_points = self.to_points.shape[0] # currently 5
+
 
 
     """
     Public Methods
     """
     def calibrate(self, eye_to_clb = [0, 1], USE_DUMMY_PERIOD = True):
-        '''
-        :param list eye_to_clb:
-                                list of integer ( only right eye : [0]
-                                                  only left eye : [1]
-                                                  both eyes : [0, 1] )
+        """
+        :param list eye_to_clb: list of integer
+                                                only right eye : [0]
+                                                only left eye : [1]
+                                                both eyes : [0, 1]
 
         :param bool USE_DUMMY_PERIOD: True if you want to discard the data in transition of gaze.
 
@@ -99,13 +114,13 @@ class Pupil:
             Left top -> Right top -> Right bottom -> Left bottom -> Center (if needed)
 
             1 ━━━━━━━━━━━━━>>>━━━━━━━━━━━━━ 2
-            │                               │
-            │                               │
-            ↑                               ↓
-            ↑               5               ↓
-            ↑          ↗                   ↓
-            │      ↗                       │
-            │  ↗                           │
+                                            │
+                                            │
+                                            ↓
+                            5               ↓
+                       ↗                   ↓
+                   ↗                       │
+               ↗                           │
             4 ━━━━━━━━━━━━━<<<━━━━━━━━━━━━━ 5
 
 
@@ -115,19 +130,19 @@ class Pupil:
         Finally, calibration returns the Affine Transform Matrices. (1 or 2 matrices)
 
 
-        '''
+        """
         sub_socket, time0 = self._start_connection()
 
         # Coordinate transformation # second
-        max_num_points = self.duration_calibrate * Pupil.frequency * self.num_cal_points * len(eye_to_clb)
-        data_calibration = np.empty([max_num_points, 4])
+        max_num_points = self.duration_calibrate * Pupil._frequency * self.num_cal_points * len(eye_to_clb)
+        data_calibration = np.zeros([max_num_points, 4])
 
         # Initialization
         t = 0
         position = 0
         index = 0
         global_idx = 0
-        X = [np.empty(shape = [0, 2]), np.empty(shape = [0, 2])] # data for left and right eye
+        X = [np.zeros(shape = [0, 2]), np.zeros(shape = [0, 2])] # data for left and right eye
         indices_eye_position_change = [[],[]]
 
         # Data collecting
@@ -154,7 +169,7 @@ class Pupil:
             # START - Dummy processing...
             t_from_new_position = t - self.duration_calibrate * new_position
 
-            if USE_DUMMY_PERIOD and t_from_new_position < self.dummy_period:
+            if USE_DUMMY_PERIOD and t_from_new_position < self.duration_dummy:
                 # TODO : discard data
                 print("%s at %.3fs | pupil position : (%.3f,%.3f)" % (topic, t, x, y) + " ** Will be treated as dummy **")
                 pass
@@ -163,12 +178,11 @@ class Pupil:
             # END - Dummy processing
 
                 # START - Confidence test
-                if conf < Pupil.conf_th_calib:
+                if conf < self.conf_th_calib:
                     print("Deleted because of low confidence", conf)
                     continue
-
-
                 # END - Confidence test
+
 
                 data_calibration[global_idx, :] = [t, x, y, left_eye] # for matlab
                 X[left_eye] = np.append(X[left_eye], [[x, y]], axis = 0) # for later data processing
@@ -177,7 +191,7 @@ class Pupil:
                 global_idx = global_idx + 1
                 print("%s at %.3fs | pupil position : (%.3f,%.3f), conf:%.3f" % (topic, t, x, y, conf))
 
-        sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
+        sub_socket.disconnect(b"tcp://%s:%s" % (Pupil._addr_localhost.encode('utf-8'), self.sub_port))
 
 
         from_points = [[], []]
@@ -213,7 +227,7 @@ class Pupil:
         self._save_file('eye_track_before_calib_data_latest.mat', data_calibration)
 
         # TEMP : save after transform data for visualization
-        data_refine = np.empty([max_num_points * self.num_cal_points, 4])
+        data_refine = np.zeros([max_num_points * self.num_cal_points, 4])
 
         for i in range(data_calibration.shape[0]):
             eye = int(data_calibration[i][3])
@@ -242,7 +256,7 @@ class Pupil:
         """
         :param string type: 'calibration' or 'record'
 
-        returns: duration        
+        returns: duration
         """
         if type == 'calibration':
             return self.duration_calibrate
@@ -253,21 +267,28 @@ class Pupil:
             return 0.0
 
 
-    def record(self, duration = 20.0, synchronize = False):
-        '''
-        :param float duration: duration for Recording
+    def get_pupil_remote_port(self):
+        """
+        :returns current port number communcating Pupil Capture
+        """
+        return self.port_pupil_remote
+
+
+    def record(self, synchronize = False, duration = 20.0):
+        """
         :param bool synchonize: whether to synchronize data from both eye (average)
+        :param float duration: duration for Recording
 
         :returns: The 2D Array of recorded data
 
         Procedure
         -----------------
         1. receive Pupil data from device
-        2. transfrom the pupil position to gaze new_position with Affine transform matrix with precaculated
+        2. transfrom the pupil position to gaze new_position with Affine transform matrix which is precaculated
         3. (If syncronize option is selected)
            Synchronize both eyes' data with average.
 
-        '''
+        """
         # check whether calibrated and make connection
         if any(self.Affine_Transforms) is False :
             print("You should calibrate before record.")
@@ -275,7 +296,7 @@ class Pupil:
 
         sub_socket, time0 = self._start_connection()
         """
-        self.sub_socket.connect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port) )
+        self.sub_socket.connect(b"tcp://%s:%s" % (Pupil._addr_localhost.encode('utf-8'), self.sub_port) )
 
         # Find initial point of time.
         topic, msg = self.sub_socket.recv_multipart()
@@ -284,8 +305,8 @@ class Pupil:
         """
 
         # variable initialization
-        max_num_points = duration * Pupil.frequency * 2
-        data = np.empty([max_num_points, 7])
+        max_num_points = duration * Pupil._frequency * 2
+        data = np.zeros([max_num_points, 7])
         t = 0
         index = 0
 
@@ -294,7 +315,7 @@ class Pupil:
         # Data acquisition with synchonization (left eye and right eye)
         qs = [Queue()]
         if synchronize:
-            self.data = np.empty([max_num_points, 3])
+            self.data = np.zeros([max_num_points, 3])
             qs.append(Queue())
             self._synchronize(qs, 0, time.time())
 
@@ -305,7 +326,7 @@ class Pupil:
             conf = pupil_position[b'confidence']
             coord = pupil_position[b'norm_pos']
 
-            if conf < Pupil.conf_th_record :
+            if conf < self.conf_th_record :
                 print("Deleted because of low confidence", conf)
                 continue
 
@@ -326,7 +347,7 @@ class Pupil:
 
         # Recoring finishes with Beep sound
         self._beep()
-        sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
+        sub_socket.disconnect(b"tcp://%s:%s" % (Pupil._addr_localhost.encode('utf-8'), self.sub_port))
 
         data_dict = {'timestamp' : np.zeros(1), \
                      'x' : np.zeros(1), \
@@ -335,9 +356,6 @@ class Pupil:
         if synchronize:
             # Send synchronization end signal
             qs.append(None)
-            for q in qs:
-                if q is not None:
-                    q.join()
             print("Thread finished..")
 
             data_dict['timestamp'] = self.data[:, 0]
@@ -360,9 +378,9 @@ class Pupil:
 
 
     def set_calibration_frame(self, new_points):
-        '''
+        """
         :param list new_points: list of points to calibrate
-        '''
+        """
         # TODO : check whether new_points's type is numpy 2d array
 
         self.to_points = new_points
@@ -380,8 +398,15 @@ class Pupil:
             self.duration_record = duration
 
 
+    def set_pupil_remote_port(self, port_num):
+        """
+        :param int port_num: port number on Pupil remote tab
+        """
+        self.port_pupil_remote = str(port_num)
+
+
     def save_data_dict(self, file_name, data_dict, object_name = 'data'):
-        '''
+        """
         :param string file_name: name of file
         :param dict data_dict: dictionary that is from pypupil.
         :param string object_name: name of data in MATLAB.
@@ -389,7 +414,7 @@ class Pupil:
         save data in .mat format with file name,
         You can put data as dictionary type, which is given py pypupil.
         This method will automatically convert the data into 2d array with given column order.
-        '''
+        """
         if len(data_dict) < 4:
             data = np.column_stack((data_dict['timestamp'], \
                                     data_dict['x'], \
@@ -403,11 +428,11 @@ class Pupil:
 
 
     def throw(self, duration = 1000):
-        '''
-        :param float duration : duration
+        """
+        :param float duration: duration of throwing data
 
-        Get processed data in real time
-        '''
+        Get processed data in real time via serial communication
+        """
         # check whether calibrated and make connection
         if any(self.Affine_Transforms) is False :
             print("You should calibrate before record.")
@@ -416,12 +441,12 @@ class Pupil:
         sub_socket, time0 = self._start_connection()
 
         # Variable initialization
-        max_num_points = duration * Pupil.frequency * 2
+        max_num_points = duration * Pupil._frequency * 2
         t = 0
         self._beep()
 
         # Get raw data : ** Will be deprecated **
-        data = np.empty([max_num_points, 7])
+        data = np.zeros([max_num_points, 7])
 
         # Data acquisition with synchonization (left eye and right eye)
         qs = [Queue(), Queue()]
@@ -435,7 +460,7 @@ class Pupil:
             coord = pupil_position[b'norm_pos']
 
             # discard low-confidence data
-            if conf < Pupil.conf_th_record :
+            if conf < self.conf_th_record :
                 print("Deleted because of low confidence", conf)
                 continue
 
@@ -451,41 +476,39 @@ class Pupil:
 
         # Recoring finishes with Beep sound
         self._beep()
-        sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
+        sub_socket.disconnect(b"tcp://%s:%s" % (Pupil._addr_localhost.encode('utf-8'), self.sub_port))
 
         # Send synchronization END signal
         qs.append(None)
-        for q in qs:
-            if q is not None:
-                q.join()
-
         print("Thread finished..")
+
+
         print("Throwing data finished..")
 
 
 
     def _synchronize(self, qs, index_sync, t0 = 0.0, prev_point = None):
-        '''
+        """
+        :param list qs: list of queues of points received by pupil
+                        * qs[0]: queue of data from right eye
+                        * qs[1]: queue of data from left eye
+
+        :param int index_sync: it increases as this function called
+
+        :param float t0: reference time from syncronization start
+
+        :param tuple prev_point: if one of both eye data does not arrive, We use the data which came just before.
+
         start synchronization of asynchronous eye data from both eyes
         It produces synchonized data every (1/120Hz) second using queue.
 
-        Arguments :
-            qs : list of queues of points received by pupil
-                qs[0] : queue of datum from right eye
-                qs[1] : queue of datum from left eye
-
-            index_sync : it increases as this function called
-
-            t0 : reference time from syncronization start
-
-            prev_point : if one of both eye data does not arrive, We use the data which came just before.
-        '''
+        """
         if None in qs:
             print("Thread finishing..")
             return
 
         #assert len(qs) == 2
-        t_sync = index_sync * Pupil.period # time to synchronize
+        t_sync = index_sync * Pupil._period # time to synchronize
         t0_process = time.time()
 
         # Variable initialization
@@ -517,7 +540,7 @@ class Pupil:
             prev_point = t, x, y
 
             # Flush if t_diff_max > 8.3 ms
-            if t_diff_max > Pupil.period :
+            if t_diff_max > Pupil._period :
                 q = qs[idx_qsize_max]
                 for i in range(qsize_diff):
                     q.get_nowait()
@@ -543,7 +566,7 @@ class Pupil:
 
 
     def _plot_graph(self, data = None):
-        data = np.empty(shape = [10, 2])
+        data = np.zeros(shape = [10, 2])
 
         for i in range(10):
             x, y = (i, 2*i)
@@ -557,17 +580,17 @@ class Pupil:
 
 
     def _save_file(self, file_name, data, object_name = 'data'):
-        '''
+        """
         save data in .mat format with file_name
         You can change the directory which the file will be saved.
-        '''
+        """
         file_dir = 'data/'
         file_name = file_dir + file_name
         scipy.io.savemat(file_name, mdict = { object_name : data })
 
 
     def _idx_lut(self, labels, index_change):
-        '''
+        """
         :param list labels: list of labels
         :param list index_change : list of indices that change gaze position
 
@@ -580,11 +603,11 @@ class Pupil:
 
         get mode of labels in subarray
         and make lookup Table
-        '''
+        """
 
         num_points = len(index_change) + 1
         spl = np.split(labels, index_change)
-        LUT = np.empty(num_points, dtype = int)
+        LUT = np.zeros(num_points, dtype = int)
 
         # Find mode value
         for i in range(num_points):
@@ -602,7 +625,7 @@ class Pupil:
     def _start_connection(self):
 
         self._beep()
-        self.sub_socket.connect(b"tcp://%s:%s" %(Pupil.addr_localhost.encode('utf-8'), self.sub_port))
+        self.sub_socket.connect(b"tcp://%s:%s" %(Pupil._addr_localhost.encode('utf-8'), self.sub_port))
         topic, msg = self.sub_socket.recv_multipart()
 
         # get data
@@ -622,7 +645,7 @@ class Pupil:
     Will be deprecated
     """
     def _record(self, synchronize = False):
-        '''
+        """
         Make matlab file with recorded data, raw data
         Return nothing
 
@@ -632,13 +655,13 @@ class Pupil:
                With Affine transform matrix with precaculated
         3(If syncronize option is selected).
            Synchronize both eyes' data with average.
-        '''
+        """
 
         # check whether calibrated and make connection
         if any(self.Affine_Transforms) is False :
             print("You should calibrate before record.")
             return
-        self.sub_socket.connect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port) )
+        self.sub_socket.connect(b"tcp://%s:%s" % (Pupil._addr_localhost.encode('utf-8'), self.sub_port) )
 
         # Find initial point of time.
         topic, msg = self.sub_socket.recv_multipart()
@@ -646,8 +669,8 @@ class Pupil:
         time0 = pupil_position[b'timestamp']
 
         # Make null arrays to fill.
-        max_num_points = self.duration_record * Pupil.frequency * 2
-        data = np.empty([max_num_points, 6]) # Will be deprecated
+        max_num_points = self.duration_record * Pupil._frequency * 2
+        data = np.zeros([max_num_points, 6]) # Will be deprecated
 
         # variable initialization
         t = 0
@@ -659,7 +682,7 @@ class Pupil:
         # Data acquisition with synchonization (left eye and right eye)
         qs = [Queue()]
         if synchronize:
-            self.data = np.empty([max_num_points, 3])
+            self.data = np.zeros([max_num_points, 3])
             qs.append(Queue())
             self._synchronize(qs, 0, time.time())
 
@@ -672,7 +695,7 @@ class Pupil:
             conf = pupil_position[b'confidence']
 
 
-            if conf < Pupil.conf_th_record :
+            if conf < self.conf_th_record :
                 print("Deleted because of low confidence", conf)
                 continue
 
@@ -695,7 +718,7 @@ class Pupil:
 
         # Recoring finishes with Beep sound
         self._beep()
-        self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil.addr_localhost.encode('utf-8'), self.sub_port))
+        self.sub_socket.disconnect(b"tcp://%s:%s" % (Pupil._addr_localhost.encode('utf-8'), self.sub_port))
 
 
         current_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
@@ -716,9 +739,7 @@ class Pupil:
 
 
 """
-
 Open-source lib usage
 ---------------------
 scipy, sklearn, numpy, zmq, msgpack, affine_transformer
-
 """

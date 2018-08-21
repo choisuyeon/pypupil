@@ -1,5 +1,5 @@
 ==============================
- :mod:`pypupil` module
+ :mod:`pypupil`
 ==============================
 
 .. automodule:: pupil

@@ -4,6 +4,9 @@
 - Record Pupil data and conversion to .mat file
 - Synchronization of both eye tracking data
 
+## API docs
+[Pypupil docs](http://https://choisuyeon.github.io/pypupil_docs)
+
 ## Getting Started
 You should read the official docs from Pupil-labs  
 : how to setup pupil-labs eye tracker [Pupil labs docuentation](https://docs.pupil-labs.com/#developer-setup)

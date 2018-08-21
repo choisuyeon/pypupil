@@ -4,8 +4,9 @@
 #
 # Command line interface for pypupil
 #################################################################################
-import time
+import time, datetime
 import sys
+import numpy as np
 from pupil import Pupil
 
 if __name__ == "__main__" :
@@ -85,12 +86,37 @@ while True:
 
 
     elif command == "r":
-        sync = True
-        data = tracker.record(sync)
-        data_processed = np.column_stack( (data['timestamp'], data['x'], data['y']) )
+        sync = False
+        cmd_sync = input('=' * 60 +
+                        '\nDo you want to synchronize? \n' +
+                        '\t\t y (yes) \n' +
+                        '\t\t n (no) \n' +
+                        '=' * 60 +
+                        '\nInput command : ')
+        if cmd_sync == "y" or cmd_sync == "yes":
+            sync = True
+        elif cmd_sync == "n" or cmd_sync == "no":
+            pass
+        else:
+            continue
+
+
+        data = tracker.record(sync, 5)
+
 
         curr_time = str(datetime.datetime.now().strftime('%y%m%d_%H%M%S'))
+        data_processed = np.column_stack( (data['timestamp'], data['x'], data['y']) )
+
         file_name_prefix = 'eye_track_gaze_processed_data_'
-        self._save_file(file_name_prefix + curr_time + '.mat', data_processed)
-        self._save_file(file_name_prefix + curr_time + '_latest.mat', data_processed)
+        tracker._save_file(file_name_prefix + curr_time + '.mat', data_processed)
+        tracker._save_file(file_name_prefix + 'latest.mat', data_processed)
         print("Processed data saving...")
+
+
+        data_raw = data['raw']
+        data_raw = np.column_stack( (data_raw['timestamp'], data_raw['x_transformed'], \
+                                     data_raw['y_transformed'], data_raw['left_eye'], data_raw['conf'] ) )
+        file_name_prefix = 'eye_track_gaze_raw_data_'
+        tracker._save_file(file_name_prefix + curr_time + '.mat', data_raw)
+        tracker._save_file(file_name_prefix + 'latest.mat', data_raw)
+        print("Raw data saving...")
