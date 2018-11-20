@@ -7,7 +7,7 @@
 import time, datetime
 import sys
 import numpy as np
-from pupil import Pupil
+from pypupil.pupil import Pupil
 
 if __name__ == "__main__" :
     print("start eye tracker")

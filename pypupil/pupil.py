@@ -1,5 +1,5 @@
 """
-.. author:: Suyeon Choi, Seoul National University <0310csy@hanmail.net>
+.. author:: Suyeon Choi, Seoul National University  <suyn.choi@gmail.com>
 """
 
 import threading
@@ -15,7 +15,7 @@ from scipy import stats
 import scipy.io
 from sklearn.cluster import KMeans
 
-from affine_transformer import Affine_Fit
+from pypupil.affine_transformer import Affine_Fit
 
 
 class Pupil:
